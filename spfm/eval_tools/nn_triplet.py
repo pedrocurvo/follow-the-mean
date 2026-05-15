@@ -35,7 +35,7 @@ from utils.train_helpers import (
 )
 
 
-LOGGER = logging.getLogger("full_attention_nn_triplet_eval")
+LOGGER = logging.getLogger("spfm_nn_triplet_eval")
 NN_SEARCH_CHUNK = 1024
 
 
@@ -45,9 +45,9 @@ def _parse_bool(value):
 
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="Generate 8 images and latent nearest neighbours for three DB variants.")
-    ap.add_argument("--config", default="experiments/model.yaml")
-    ap.add_argument("--ckpt", default="out/model_spf_fullattention_afhq_cat_dog/model_step10000.pt")
-    ap.add_argument("--results_dir", default="out/evals/model_spf_fullattention_afhq_cat_dog_step10000/nn_triplet")
+    ap.add_argument("--config", default="experiments/spfm.yaml")
+    ap.add_argument("--ckpt", default="out/spfm_afhq_cat_dog/model_step10000.pt")
+    ap.add_argument("--results_dir", default="out/evals/spfm_afhq_cat_dog_step10000/nn_triplet")
     ap.add_argument("--num_gen", type=int, default=8)
     ap.add_argument("--sample_steps", type=int, default=None)
     ap.add_argument("--decode_batch", type=int, default=None)

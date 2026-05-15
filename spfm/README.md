@@ -2,8 +2,8 @@
 
 This directory contains the image experiments for the follow-the-mean repo. It is a trimmed copy of the original SPFM training/eval code, keeping only the two model families used here:
 
-- `full_attention`: the retrieval model with a refiner.
-- `baseline_dit`: the baseline DiT model.
+- `spfm`: the SPFM model with a refiner.
+- `dit`: the DiT model.
 
 Removed backends include FAISS, Nystrom, BallTree, and MC variants.
 
@@ -12,8 +12,8 @@ Removed backends include FAISS, Nystrom, BallTree, and MC variants.
 ```text
 spfm/
   experiments/
-    model.yaml             # full_attention experiment config
-    baseline_dit.yaml      # baseline DiT experiment config
+    spfm.yaml             # spfm experiment config
+    dit.yaml      # DiT experiment config
   scripts/
     train.sh               # SLURM training launcher
     eval.sh                # SLURM evaluation launcher
@@ -24,8 +24,8 @@ spfm/
     nn_triplet.py
     nn_triplet_steering.py
   models/
-    full_attention/
-    baseline_dit/
+    spfm/
+    dit/
     refiner/
   trainer/                 # training loop helpers
   utils/                   # IO, optimizer, sampling helpers
@@ -59,51 +59,51 @@ Override these as environment variables if needed.
 
 ## Training
 
-Submit the baseline DiT config:
+Submit the DiT config:
 
 ```bash
 cd /home/pcurvo/follow-the-mean-rgfm/spfm
-sbatch scripts/train.sh experiments/baseline_dit.yaml
+sbatch scripts/train.sh experiments/dit.yaml
 ```
 
-Submit the full-attention config:
+Submit the SPFM config:
 
 ```bash
 cd /home/pcurvo/follow-the-mean-rgfm/spfm
-sbatch scripts/train.sh experiments/model.yaml
+sbatch scripts/train.sh experiments/spfm.yaml
 ```
 
 For a non-SLURM dry run that only prints the generated command:
 
 ```bash
-/home/pcurvo/.conda/envs/hfm/bin/python run_experiment.py --config experiments/model.yaml --dry-run
-/home/pcurvo/.conda/envs/hfm/bin/python run_experiment.py --config experiments/baseline_dit.yaml --dry-run
+/home/pcurvo/.conda/envs/hfm/bin/python run_experiment.py --config experiments/spfm.yaml --dry-run
+/home/pcurvo/.conda/envs/hfm/bin/python run_experiment.py --config experiments/dit.yaml --dry-run
 ```
 
 Outputs default to:
 
 ```text
-out/model_spf_fullattention_afhq_cat_dog
-out/model_baseline_dit_afhq_10k
+out/spfm_afhq_cat_dog
+out/dit_afhq_10k
 ```
 
 ## Experiment Configs
 
-`experiments/model.yaml` trains `full_attention` with:
+`experiments/spfm.yaml` trains `spfm` with:
 
 - AFHQv2 train split.
 - Main DB `dog:1.0,cat:1.0`.
 - Alt DB `dog:0.0,cat:1.0`.
 - Refiner depth `11`.
-- Output directory `out/model_spf_fullattention_afhq_cat_dog`.
+- Output directory `out/spfm_afhq_cat_dog`.
 
-`experiments/baseline_dit.yaml` trains `baseline-dit` with:
+`experiments/dit.yaml` trains `dit` with:
 
 - AFHQv2 train split.
 - Main DB `dog:1.0,cat:1.0`.
 - Alt DB `dog:0.3,cat:0.7`.
 - Refiner depth `0`.
-- Output directory `out/model_baseline_dit_afhq_10k`.
+- Output directory `out/dit_afhq_10k`.
 
 ## Evaluation
 
@@ -111,14 +111,14 @@ Use one launcher for all eval modes:
 
 ```bash
 cd /home/pcurvo/follow-the-mean-rgfm/spfm
-MODE=full-catdog sbatch --gres=gpu:4 scripts/eval.sh
+MODE=spfm-catdog sbatch --gres=gpu:4 scripts/eval.sh
 ```
 
 Common overrides:
 
 ```bash
-CONFIG=experiments/model.yaml
-CKPT=out/model_spf_fullattention_afhq_cat_dog/model_step10000.pt
+CONFIG=experiments/spfm.yaml
+CKPT=out/spfm_afhq_cat_dog/model_step10000.pt
 MODEL_TAG=my_eval_name
 RESULTS_DIR=out/evals/custom
 ARTIFACTS_ROOT=/projects/prjs1771/follow-the-mean-rgfm/evals/my_eval_name
@@ -132,8 +132,8 @@ NUM_PROCESSES=4
 Supported modes:
 
 ```bash
-MODE=full-catdog sbatch --gres=gpu:4 scripts/eval.sh
-MODE=baseline-catdog sbatch --gres=gpu:4 scripts/eval.sh
+MODE=spfm-catdog sbatch --gres=gpu:4 scripts/eval.sh
+MODE=dit-catdog sbatch --gres=gpu:4 scripts/eval.sh
 MODE=db-size-sweep DB_SIZES="10 100 1000" sbatch --gres=gpu:1 scripts/eval.sh
 MODE=class-balance CAT_PCTS="100 50 0" TOTAL_GEN=1000 sbatch --gres=gpu:1 scripts/eval.sh
 MODE=lpips DB_SIZES="10 100 1000" COMPOSITIONS="cat100_dog0 cat50_dog50" sbatch --gres=gpu:1 scripts/eval.sh

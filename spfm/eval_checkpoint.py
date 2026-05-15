@@ -168,7 +168,7 @@ def _prepare_reference_args(args):
 def _maybe_override_embed_dim(args) -> None:
     latent_dim = args.latent_c * args.latent_h * args.latent_w
     expected_embed_dim = args.embed_dim
-    model_requires_fixed_embed_dim = args.model != "baseline_dit"
+    model_requires_fixed_embed_dim = args.model != "dit"
     cross_patchwise_effective = bool(args.cross_patchwise)
     if model_requires_fixed_embed_dim:
         if not cross_patchwise_effective:
@@ -324,7 +324,7 @@ def main() -> int:
 
     ddp_find_unused = training_args.ddp_find_unused_parameters
     if ddp_find_unused is None:
-        ddp_find_unused = training_args.model == "full_attention"
+        ddp_find_unused = training_args.model == "spfm"
     ddp_find_unused = bool(ddp_find_unused)
 
     accelerator_project_config = ProjectConfiguration(

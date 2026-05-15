@@ -671,9 +671,9 @@ def main(args):
 
     ddp_find_unused = args.ddp_find_unused_parameters
     if ddp_find_unused is None:
-        # Auto mode: full_attention defines modules that may stay unused in forward,
+        # Auto mode: spfm defines modules that may stay unused in forward,
         # which trips strict DDP bucket rebuild checks on multi-GPU runs.
-        ddp_find_unused = args.model == "full_attention"
+        ddp_find_unused = args.model == "spfm"
     ddp_find_unused = bool(ddp_find_unused)
 
     logging_dir = Path(args.out_dir, args.logging_dir)
@@ -763,7 +763,7 @@ def main(args):
     args.latent_downsample = latent_downsample
     latent_dim = latent_c * latent_h * latent_w
     expected_embed_dim = args.embed_dim
-    model_requires_fixed_embed_dim = args.model != "baseline_dit"
+    model_requires_fixed_embed_dim = args.model != "dit"
     cross_patchwise_effective = bool(args.cross_patchwise)
     if model_requires_fixed_embed_dim:
         if not cross_patchwise_effective:
@@ -886,7 +886,7 @@ def parse_args(input_args=None):
         type=int,
         default=0,
         help=(
-            "Chunk size over DB tokens for full-attention softmax retrieval; "
+            "Chunk size over DB tokens for SPFM softmax retrieval; "
             "0 disables chunking."
         ),
     )
@@ -894,13 +894,13 @@ def parse_args(input_args=None):
         "--cross_db_dropout",
         type=float,
         default=0.0,
-        help="Train-only probability of masking each DB image for full_attention retrieval.",
+        help="Train-only probability of masking each DB image for spfm retrieval.",
     )
     ap.add_argument(
         "--model",
         type=str,
-        default="full_attention",
-        choices=["baseline-dit", "baseline_dit", "full_attention"],
+        default="spfm",
+        choices=["dit", "spfm"],
         help="Model family to train.",
     )
     ap.add_argument(
@@ -995,7 +995,7 @@ def parse_args(input_args=None):
         default=None,
         help=(
             "Override DDP find_unused_parameters. "
-            "If unset, auto-enables for model=full_attention and disables otherwise."
+            "If unset, auto-enables for model=spfm and disables otherwise."
         ),
     )
     ap.add_argument("--report_to", type=str, default="wandb")

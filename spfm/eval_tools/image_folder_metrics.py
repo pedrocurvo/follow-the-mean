@@ -30,7 +30,7 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--generated_dir", required=True)
     ap.add_argument("--reference_dir", required=True)
     ap.add_argument("--results_dir", required=True)
-    ap.add_argument("--config", default="experiments/model.yaml")
+    ap.add_argument("--config", default="experiments/spfm.yaml")
     ap.add_argument("--fid", type=_parse_bool, default=True)
     ap.add_argument("--kid", type=_parse_bool, default=True)
     ap.add_argument("--inception_score", type=_parse_bool, default=True)

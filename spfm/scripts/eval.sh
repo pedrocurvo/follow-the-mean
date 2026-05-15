@@ -4,7 +4,7 @@
 # Submit with one MODE and override settings through environment variables:
 #
 #   sbatch --gres=gpu:4 scripts/eval.sh
-#   MODE=baseline-catdog sbatch --gres=gpu:4 scripts/eval.sh
+#   MODE=dit-catdog sbatch --gres=gpu:4 scripts/eval.sh
 #   MODE=db-size-sweep DB_SIZES="10 100 1000" sbatch --gres=gpu:1 scripts/eval.sh
 #   MODE=class-balance CAT_PCTS="100 50 0" TOTAL_GEN=1000 sbatch --gres=gpu:1 scripts/eval.sh
 #   MODE=lpips DB_SIZES="10 100 1000" COMPOSITIONS="cat100_dog0 cat50_dog50" sbatch --gres=gpu:1 scripts/eval.sh
@@ -14,23 +14,23 @@
 #   MODE=fixed-seed sbatch --gres=gpu:1 scripts/eval.sh
 #
 # Common overrides:
-#   CONFIG=experiments/model.yaml
-#   CKPT=out/model_spf_fullattention_afhq_cat_dog/model_step10000.pt
+#   CONFIG=experiments/spfm.yaml
+#   CKPT=out/spfm_afhq_cat_dog/model_step10000.pt
 #   MODEL_TAG=my_eval_name
 #   RESULTS_DIR=out/evals/custom
 #   ARTIFACTS_ROOT=/projects/prjs1771/follow-the-mean-rgfm/evals/my_eval_name
 #   TOTAL_GEN=50000 SAMPLE_STEPS=20 GEN_BATCH=128 USE_EMA=false NUM_PROCESSES=4
 #
 # Modes:
-#   full-catdog       Full-attention cat/dog 50k eval with FID/KID/IS/CLIP.
-#   baseline-catdog   Baseline DiT cat/dog 50k eval with FID/KID/IS/CLIP.
-#   db-size-sweep     Full-attention sweep over N_img values.
-#   class-balance     Full-attention sweep over cat/dog DB composition.
-#   lpips             Full-attention LPIPS sweep over DB sizes/compositions.
-#   nn-triplet        Full-attention 3-way nearest-neighbor visualization.
-#   nn-triplet-steer  Full-attention 3-way steering visualization.
+#   spfm-catdog       SPFM cat/dog 50k eval with FID/KID/IS/CLIP.
+#   dit-catdog   DiT cat/dog 50k eval with FID/KID/IS/CLIP.
+#   db-size-sweep     SPFM sweep over N_img values.
+#   class-balance     SPFM sweep over cat/dog DB composition.
+#   lpips             SPFM LPIPS sweep over DB sizes/compositions.
+#   nn-triplet        SPFM 3-way nearest-neighbor visualization.
+#   nn-triplet-steer  SPFM 3-way steering visualization.
 #   metrics-only      Recompute metrics for existing generated/reference dirs.
-#   fixed-seed        Fixed-seed baseline vs full-attention comparison.
+#   fixed-seed        Fixed-seed DiT vs SPFM comparison.
 #
 # This file replaces the old one-off eval_*.sh wrappers. The Python helpers in
 # eval_tools/ contain model-specific evaluation logic.
@@ -69,7 +69,7 @@ SPFM_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${SPFM_DIR}" || exit 1
 
 PYTHON_BIN="${PYTHON_BIN:-/home/pcurvo/.conda/envs/hfm/bin/python}"
-MODE="${MODE:-full-catdog}"
+MODE="${MODE:-spfm-catdog}"
 CONFIG="${CONFIG:-}"
 MODEL_DIR="${MODEL_DIR:-}"
 CKPT="${CKPT:-}"
@@ -90,23 +90,23 @@ run_eval_checkpoint() {
   srun "${PYTHON_BIN}" "${maybe_multi[@]}" eval_checkpoint.py "$@"
 }
 
-set_full_attention_defaults() {
-  CONFIG="${CONFIG:-experiments/model.yaml}"
-  MODEL_DIR="${MODEL_DIR:-out/model_spf_fullattention_afhq_cat_dog}"
+set_spfm_defaults() {
+  CONFIG="${CONFIG:-experiments/spfm.yaml}"
+  MODEL_DIR="${MODEL_DIR:-out/spfm_afhq_cat_dog}"
   CKPT="${CKPT:-${MODEL_DIR}/model_step10000.pt}"
   MODEL_TAG="${MODEL_TAG:-$(basename "${MODEL_DIR}")_step10000}"
   ARTIFACTS_ROOT="${ARTIFACTS_ROOT:-/projects/prjs1771/follow-the-mean-rgfm/evals/${MODEL_TAG}}"
 }
 
-set_baseline_defaults() {
-  CONFIG="${CONFIG:-experiments/baseline_dit.yaml}"
-  MODEL_DIR="${MODEL_DIR:-out/model_baseline_dit_afhq_10k}"
+set_dit_defaults() {
+  CONFIG="${CONFIG:-experiments/dit.yaml}"
+  MODEL_DIR="${MODEL_DIR:-out/dit_afhq_10k}"
   CKPT="${CKPT:-${MODEL_DIR}/model_step10000.pt}"
-  MODEL_TAG="${MODEL_TAG:-model_baseline_dit_afhq_10k_step10000}"
+  MODEL_TAG="${MODEL_TAG:-dit_afhq_10k_step10000}"
   ARTIFACTS_ROOT="${ARTIFACTS_ROOT:-/projects/prjs1771/follow-the-mean-rgfm/evals/${MODEL_TAG}}"
 }
 
-run_full_or_baseline_catdog() {
+run_model_catdog() {
   local default_results="out/evals/${MODEL_TAG}/catdog_50k"
   local results_dir="${RESULTS_DIR:-${default_results}}"
   local generated_dir="${GENERATED_DIR:-${ARTIFACTS_ROOT}/catdog_50k/generated}"
@@ -306,9 +306,9 @@ run_metrics_only() {
 
 run_fixed_seed() {
   srun "${PYTHON_BIN}" eval_tools/fixed_seed_comparison.py \
-    --config "${CONFIG:-experiments/model.yaml}" \
-    --baseline-ckpt "${BASELINE_CKPT:-out/model_baseline_dit_afhq_10k}" \
-    --retrieval-ckpt "${RETRIEVAL_CKPT:-${CKPT}}" \
+    --config "${CONFIG:-experiments/spfm.yaml}" \
+    --dit-ckpt "${DIT_CKPT:-out/dit_afhq_10k}" \
+    --spfm-ckpt "${SPFM_CKPT:-${CKPT}}" \
     --output-root "${OUTPUT_ROOT:-out/evals/fixed_seed_comparison}" \
     --seed "${SEED:-1234}" \
     --sample-steps "${SAMPLE_STEPS}" \
@@ -325,40 +325,40 @@ run_fixed_seed() {
 }
 
 case "${MODE}" in
-  full-catdog)
-    set_full_attention_defaults
-    run_full_or_baseline_catdog
+  spfm-catdog)
+    set_spfm_defaults
+    run_model_catdog
     ;;
-  baseline-catdog)
-    set_baseline_defaults
-    run_full_or_baseline_catdog
+  dit-catdog)
+    set_dit_defaults
+    run_model_catdog
     ;;
   db-size-sweep)
-    set_full_attention_defaults
+    set_spfm_defaults
     run_db_size_sweep
     ;;
   class-balance)
-    set_full_attention_defaults
+    set_spfm_defaults
     run_class_balance
     ;;
   lpips)
-    set_full_attention_defaults
+    set_spfm_defaults
     run_lpips_sweep
     ;;
   nn-triplet)
-    set_full_attention_defaults
+    set_spfm_defaults
     run_nn_triplet
     ;;
   nn-triplet-steer)
-    set_full_attention_defaults
+    set_spfm_defaults
     run_nn_triplet_steer
     ;;
   metrics-only)
-    set_full_attention_defaults
+    set_spfm_defaults
     run_metrics_only
     ;;
   fixed-seed)
-    set_full_attention_defaults
+    set_spfm_defaults
     run_fixed_seed
     ;;
   *)

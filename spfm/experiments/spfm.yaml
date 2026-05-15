@@ -19,7 +19,7 @@ train:
     alt_db: dog:0.0,cat:1.0
 
   model:
-    model: full_attention
+    model: spfm
     vae_name: REPA-E/e2e-invae
     embed_dim: 768
     time_embed_dim: 256
@@ -84,13 +84,13 @@ train:
     log_every: 100
     sample_every: 1000
     save_every: 10000
-    out_dir: out/model_spf_fullattention_afhq_cat_dog
+    out_dir: out/spfm_afhq_cat_dog
     exp_name: null
     logging_dir: logs
     report_to: wandb
     wandb_project: semi-parametric-fm
     wandb_entity: null
-    wandb_name: model_spf_fullattention_afhq_cat_dog
+    wandb_name: spfm_afhq_cat_dog
     wandb_resume: allow
 
   runtime:

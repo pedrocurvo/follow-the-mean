@@ -4,10 +4,10 @@ import torch
 
 
 def get_model_cls(model_name: str):
-    if model_name == "baseline_dit":
-        from models.baseline_dit.model import LearnedPosteriorMean as ModelCls
-    elif model_name == "full_attention":
-        from models.full_attention.model import LearnedPosteriorMean as ModelCls
+    if model_name == "dit":
+        from models.dit.model import LearnedPosteriorMean as ModelCls
+    elif model_name == "spfm":
+        from models.spfm.model import LearnedPosteriorMean as ModelCls
     else:
         raise ValueError(f"Unsupported model '{model_name}'")
     return ModelCls
@@ -44,7 +44,7 @@ def build_model(args, device: torch.device):
         cross_use_entmax=args.cross_use_entmax,
         cross_entmax_alpha=args.cross_entmax_alpha,
     )
-    if args.model == "full_attention":
+    if args.model == "spfm":
         kwargs["cross_attn_chunk_size"] = args.cross_attn_chunk_size
         kwargs["cross_db_dropout"] = args.cross_db_dropout
     return ModelCls(**kwargs).to(device)

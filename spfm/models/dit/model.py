@@ -55,7 +55,7 @@ class FinalLayer(nn.Module):
 
 
 class LearnedPosteriorMean(nn.Module):
-    """Baseline DiT that predicts mu directly from x_t and t with no retrieval or refiner."""
+    """DiT that predicts mu directly from x_t and t with no retrieval or refiner."""
 
     def __init__(
         self,
@@ -105,11 +105,11 @@ class LearnedPosteriorMean(nn.Module):
         del cross_attn_chunk_size
 
         if not cross_patchwise:
-            raise ValueError("baseline_dit requires cross_patchwise=True")
+            raise ValueError("dit requires cross_patchwise=True")
         if latent_h % cross_patch_size != 0 or latent_w % cross_patch_size != 0:
             raise ValueError("latent_h/latent_w must be divisible by cross_patch_size")
         if latent_h != latent_w:
-            raise ValueError("baseline_dit currently requires square latent grids")
+            raise ValueError("dit currently requires square latent grids")
         if embed_dim % num_heads != 0:
             raise ValueError("embed_dim must be divisible by num_heads")
 
@@ -132,7 +132,7 @@ class LearnedPosteriorMean(nn.Module):
         num_patches = self.x_embedder.num_patches
         grid_size = int(num_patches ** 0.5)
         if grid_size * grid_size != num_patches:
-            raise ValueError("baseline_dit requires a square patch grid")
+            raise ValueError("dit requires a square patch grid")
         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches, embed_dim), requires_grad=False)
 
         self.t_embedder = TimestepEmbedder(time_embed_dim)

@@ -56,11 +56,11 @@ def _parse_bool(value):
 
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(
-        description="Generate a fixed-seed AFHQ comparison across baseline, retrieval DB selection, and retrieval steering."
+        description="Generate a fixed-seed AFHQ comparison across DiT, SPFM DB selection, and SPFM steering."
     )
-    ap.add_argument("--baseline-ckpt", default="out/model_baseline_dit_afhq")
-    ap.add_argument("--retrieval-ckpt", default="out/model_spf_fullattention_afhq")
-    ap.add_argument("--config", default="experiments/model.yaml")
+    ap.add_argument("--dit-ckpt", default="out/dit_afhq_10k")
+    ap.add_argument("--spfm-ckpt", default="out/spfm_afhq_cat_dog")
+    ap.add_argument("--config", default="experiments/spfm.yaml")
     ap.add_argument("--output-root", default="out/afhq_fixed_seed_comparison")
     ap.add_argument("--seed", type=int, default=1234)
     ap.add_argument("--sample-steps", type=int, default=None)
@@ -301,7 +301,7 @@ def _in_steering_window(step_index: int, total_steps: int, start_frac: float, en
 
 
 @torch.no_grad()
-def _patchwise_retrieval_update(
+def _patchwise_spfm_update(
     *,
     current_latents: torch.Tensor,
     bank_latents: torch.Tensor,
@@ -353,9 +353,9 @@ def _patchwise_retrieval_update(
 
 
 @torch.no_grad()
-def _sample_baseline_with_retrieval_steering(
+def _sample_dit_with_spfm_steering(
     *,
-    baseline_runtime: Runtime,
+    dit_runtime: Runtime,
     bank_latents: torch.Tensor,
     initial_latent: torch.Tensor,
     patch_rows: int,
@@ -366,8 +366,8 @@ def _sample_baseline_with_retrieval_steering(
     steer_end_frac: float,
     steer_topk: int,
 ) -> tuple[torch.Tensor, torch.Tensor, list[dict[str, float]]]:
-    args = baseline_runtime.args
-    model = baseline_runtime.model
+    args = dit_runtime.args
+    model = dit_runtime.model
     x = initial_latent.clone()
     dummy_db = bank_latents[:1]
     ts = torch.linspace(float(args.t_eps), 1.0 - float(args.t_eps), int(args.sample_steps) + 1, device=x.device)
@@ -386,7 +386,7 @@ def _sample_baseline_with_retrieval_steering(
 
         if _in_steering_window(step_idx, int(args.sample_steps), steer_start_frac, steer_end_frac):
             beta_t = _schedule_beta(steer_strength, beta_schedule, float(t_curr.item()))
-            v_star, stats = _patchwise_retrieval_update(
+            v_star, stats = _patchwise_spfm_update(
                 current_latents=x,
                 bank_latents=bank_latents,
                 t=float(t_curr.item()),
@@ -403,12 +403,12 @@ def _sample_baseline_with_retrieval_steering(
 
         x = x + v_total * dt
 
-    imgs = decode_latents(baseline_runtime.vae, x, decode_batch=int(args.decode_batch))
+    imgs = decode_latents(dit_runtime.vae, x, decode_batch=int(args.decode_batch))
     return imgs, x, history
 
 
 @torch.no_grad()
-def _sample_model_with_retrieval_steering(
+def _sample_model_with_spfm_steering(
     *,
     runtime: Runtime,
     model_db: torch.Tensor,
@@ -441,7 +441,7 @@ def _sample_model_with_retrieval_steering(
 
         if _in_steering_window(step_idx, int(args.sample_steps), steer_start_frac, steer_end_frac):
             beta_t = _schedule_beta(steer_strength, beta_schedule, float(t_curr.item()))
-            v_star, stats = _patchwise_retrieval_update(
+            v_star, stats = _patchwise_spfm_update(
                 current_latents=x,
                 bank_latents=steer_bank_latents,
                 t=float(t_curr.item()),
@@ -485,19 +485,19 @@ def main() -> int:
     LOGGER.info("device=%s", device)
     LOGGER.info("seed=%d", int(ns.seed))
 
-    baseline_runtime = _load_runtime(
-        name="baseline",
+    dit_runtime = _load_runtime(
+        name="dit",
         config_path=ns.config,
-        ckpt=ns.baseline_ckpt,
+        ckpt=ns.dit_ckpt,
         sample_steps=ns.sample_steps,
         decode_batch=ns.decode_batch,
         device=device,
         use_ema=bool(ns.use_ema),
     )
-    retrieval_runtime = _load_runtime(
-        name="retrieval",
+    spfm_runtime = _load_runtime(
+        name="spfm",
         config_path=ns.config,
-        ckpt=ns.retrieval_ckpt,
+        ckpt=ns.spfm_ckpt,
         sample_steps=ns.sample_steps,
         decode_batch=ns.decode_batch,
         device=device,
@@ -505,14 +505,14 @@ def main() -> int:
     )
 
     if (
-        baseline_runtime.args.latent_c != retrieval_runtime.args.latent_c
-        or baseline_runtime.args.latent_h != retrieval_runtime.args.latent_h
-        or baseline_runtime.args.latent_w != retrieval_runtime.args.latent_w
+        dit_runtime.args.latent_c != spfm_runtime.args.latent_c
+        or dit_runtime.args.latent_h != spfm_runtime.args.latent_h
+        or dit_runtime.args.latent_w != spfm_runtime.args.latent_w
     ):
-        raise ValueError("Baseline and retrieval runtimes do not share the same latent shape.")
+        raise ValueError("DiT and SPFM runtimes do not share the same latent shape.")
 
-    patch_rows = int(ns.patch_rows or (baseline_runtime.args.latent_h // baseline_runtime.args.cross_patch_size))
-    patch_cols = int(ns.patch_cols or (baseline_runtime.args.latent_w // baseline_runtime.args.cross_patch_size))
+    patch_rows = int(ns.patch_rows or (dit_runtime.args.latent_h // dit_runtime.args.cross_patch_size))
+    patch_cols = int(ns.patch_cols or (dit_runtime.args.latent_w // dit_runtime.args.cross_patch_size))
 
     cat_major = int(round(0.75 * int(ns.cats)))
     cat_minor = int(ns.cats) - cat_major
@@ -524,54 +524,54 @@ def main() -> int:
     cat_spec = f"cat={cat_major},dog={cat_minor}"
     dog_spec = f"dog={dog_major},cat={dog_minor}"
     mixed_spec = f"dog={mixed_dogs},cat={mixed_cats}"
-    cat_bank, cat_indices = _build_db(retrieval_runtime, cat_spec, device, output_root=ns.output_root)
-    dog_bank, dog_indices = _build_db(retrieval_runtime, dog_spec, device, output_root=ns.output_root)
-    mixed_bank, mixed_indices = _build_db(retrieval_runtime, mixed_spec, device, output_root=ns.output_root)
+    cat_bank, cat_indices = _build_db(spfm_runtime, cat_spec, device, output_root=ns.output_root)
+    dog_bank, dog_indices = _build_db(spfm_runtime, dog_spec, device, output_root=ns.output_root)
+    mixed_bank, mixed_indices = _build_db(spfm_runtime, mixed_spec, device, output_root=ns.output_root)
     LOGGER.info("cat bank shape=%s spec=%s", tuple(cat_bank.shape), cat_spec)
     LOGGER.info("dog bank shape=%s spec=%s", tuple(dog_bank.shape), dog_spec)
     LOGGER.info("mixed bank shape=%s spec=%s", tuple(mixed_bank.shape), mixed_spec)
 
-    initial_latent = _make_initial_latent(baseline_runtime.args, device=device, seed=int(ns.seed))
-    baseline_db = torch.zeros_like(cat_bank[:1])
+    initial_latent = _make_initial_latent(dit_runtime.args, device=device, seed=int(ns.seed))
+    dit_db = torch.zeros_like(cat_bank[:1])
 
-    baseline_img, baseline_latent = _sample_from_initial_latent(
-        model=baseline_runtime.model,
-        Xdb=baseline_db,
-        vae=baseline_runtime.vae,
+    dit_img, dit_latent = _sample_from_initial_latent(
+        model=dit_runtime.model,
+        Xdb=dit_db,
+        vae=dit_runtime.vae,
         initial_latent=initial_latent,
-        steps=int(baseline_runtime.args.sample_steps),
-        t_eps=float(baseline_runtime.args.t_eps),
-        decode_batch=int(baseline_runtime.args.decode_batch),
+        steps=int(dit_runtime.args.sample_steps),
+        t_eps=float(dit_runtime.args.t_eps),
+        decode_batch=int(dit_runtime.args.decode_batch),
     )
-    retrieval_cat_img, retrieval_cat_latent = _sample_from_initial_latent(
-        model=retrieval_runtime.model,
+    spfm_cat_img, spfm_cat_latent = _sample_from_initial_latent(
+        model=spfm_runtime.model,
         Xdb=cat_bank,
-        vae=retrieval_runtime.vae,
+        vae=spfm_runtime.vae,
         initial_latent=initial_latent,
-        steps=int(retrieval_runtime.args.sample_steps),
-        t_eps=float(retrieval_runtime.args.t_eps),
-        decode_batch=int(retrieval_runtime.args.decode_batch),
+        steps=int(spfm_runtime.args.sample_steps),
+        t_eps=float(spfm_runtime.args.t_eps),
+        decode_batch=int(spfm_runtime.args.decode_batch),
     )
-    retrieval_dog_img, retrieval_dog_latent = _sample_from_initial_latent(
-        model=retrieval_runtime.model,
+    spfm_dog_img, spfm_dog_latent = _sample_from_initial_latent(
+        model=spfm_runtime.model,
         Xdb=dog_bank,
-        vae=retrieval_runtime.vae,
+        vae=spfm_runtime.vae,
         initial_latent=initial_latent,
-        steps=int(retrieval_runtime.args.sample_steps),
-        t_eps=float(retrieval_runtime.args.t_eps),
-        decode_batch=int(retrieval_runtime.args.decode_batch),
+        steps=int(spfm_runtime.args.sample_steps),
+        t_eps=float(spfm_runtime.args.t_eps),
+        decode_batch=int(spfm_runtime.args.decode_batch),
     )
-    retrieval_mixed_img, retrieval_mixed_latent = _sample_from_initial_latent(
-        model=retrieval_runtime.model,
+    spfm_mixed_img, spfm_mixed_latent = _sample_from_initial_latent(
+        model=spfm_runtime.model,
         Xdb=mixed_bank,
-        vae=retrieval_runtime.vae,
+        vae=spfm_runtime.vae,
         initial_latent=initial_latent,
-        steps=int(retrieval_runtime.args.sample_steps),
-        t_eps=float(retrieval_runtime.args.t_eps),
-        decode_batch=int(retrieval_runtime.args.decode_batch),
+        steps=int(spfm_runtime.args.sample_steps),
+        t_eps=float(spfm_runtime.args.t_eps),
+        decode_batch=int(spfm_runtime.args.decode_batch),
     )
-    steer_cat_img, steer_cat_latent, steer_cat_history = _sample_baseline_with_retrieval_steering(
-        baseline_runtime=baseline_runtime,
+    steer_cat_img, steer_cat_latent, steer_cat_history = _sample_dit_with_spfm_steering(
+        dit_runtime=dit_runtime,
         bank_latents=cat_bank,
         initial_latent=initial_latent,
         patch_rows=patch_rows,
@@ -582,8 +582,8 @@ def main() -> int:
         steer_end_frac=float(ns.steer_end_frac),
         steer_topk=int(ns.steer_topk),
     )
-    steer_dog_img, steer_dog_latent, steer_dog_history = _sample_baseline_with_retrieval_steering(
-        baseline_runtime=baseline_runtime,
+    steer_dog_img, steer_dog_latent, steer_dog_history = _sample_dit_with_spfm_steering(
+        dit_runtime=dit_runtime,
         bank_latents=dog_bank,
         initial_latent=initial_latent,
         patch_rows=patch_rows,
@@ -595,8 +595,8 @@ def main() -> int:
         steer_topk=int(ns.steer_topk),
     )
     mixed_plus_steer_dog_img, mixed_plus_steer_dog_latent, mixed_plus_steer_dog_history = (
-        _sample_model_with_retrieval_steering(
-            runtime=retrieval_runtime,
+        _sample_model_with_spfm_steering(
+            runtime=spfm_runtime,
             model_db=mixed_bank,
             steer_bank_latents=dog_bank,
             initial_latent=initial_latent,
@@ -610,8 +610,8 @@ def main() -> int:
         )
     )
     mixed_plus_steer_cat_img, mixed_plus_steer_cat_latent, mixed_plus_steer_cat_history = (
-        _sample_model_with_retrieval_steering(
-            runtime=retrieval_runtime,
+        _sample_model_with_spfm_steering(
+            runtime=spfm_runtime,
             model_db=mixed_bank,
             steer_bank_latents=cat_bank,
             initial_latent=initial_latent,
@@ -629,20 +629,20 @@ def main() -> int:
     dog_tag = f"{dog_major}dogs_{dog_minor}cats"
     mixed_tag = f"{mixed_dogs}dogs_{mixed_cats}cats"
     cases = [
-        ("baseline", "01_baseline_seed.png", baseline_img),
-        (f"retrieval_{cat_tag}", f"02_retrieval_{cat_tag}_seed.png", retrieval_cat_img),
-        (f"retrieval_{dog_tag}", f"03_retrieval_{dog_tag}_seed.png", retrieval_dog_img),
-        (f"baseline_plus_steer_{cat_tag}", f"04_baseline_plus_steer_{cat_tag}_seed.png", steer_cat_img),
-        (f"baseline_plus_steer_{dog_tag}", f"05_baseline_plus_steer_{dog_tag}_seed.png", steer_dog_img),
-        (f"retrieval_{mixed_tag}", f"06_retrieval_{mixed_tag}_seed.png", retrieval_mixed_img),
+        ("dit", "01_dit_seed.png", dit_img),
+        (f"spfm_{cat_tag}", f"02_spfm_{cat_tag}_seed.png", spfm_cat_img),
+        (f"spfm_{dog_tag}", f"03_spfm_{dog_tag}_seed.png", spfm_dog_img),
+        (f"dit_plus_steer_{cat_tag}", f"04_dit_plus_steer_{cat_tag}_seed.png", steer_cat_img),
+        (f"dit_plus_steer_{dog_tag}", f"05_dit_plus_steer_{dog_tag}_seed.png", steer_dog_img),
+        (f"spfm_{mixed_tag}", f"06_spfm_{mixed_tag}_seed.png", spfm_mixed_img),
         (
-            f"retrieval_{mixed_tag}_plus_steer_{dog_tag}",
-            f"07_retrieval_{mixed_tag}_plus_steer_{dog_tag}_seed.png",
+            f"spfm_{mixed_tag}_plus_steer_{dog_tag}",
+            f"07_spfm_{mixed_tag}_plus_steer_{dog_tag}_seed.png",
             mixed_plus_steer_dog_img,
         ),
         (
-            f"retrieval_{mixed_tag}_plus_steer_{cat_tag}",
-            f"08_retrieval_{mixed_tag}_plus_steer_{cat_tag}_seed.png",
+            f"spfm_{mixed_tag}_plus_steer_{cat_tag}",
+            f"08_spfm_{mixed_tag}_plus_steer_{cat_tag}_seed.png",
             mixed_plus_steer_cat_img,
         ),
     ]
@@ -651,20 +651,20 @@ def main() -> int:
 
     _save_bank_preview(
         cat_bank,
-        retrieval_runtime.vae,
-        decode_batch=int(retrieval_runtime.args.decode_batch),
+        spfm_runtime.vae,
+        decode_batch=int(spfm_runtime.args.decode_batch),
         out_path=os.path.join(ns.output_root, "cat_bank_preview.png"),
     )
     _save_bank_preview(
         dog_bank,
-        retrieval_runtime.vae,
-        decode_batch=int(retrieval_runtime.args.decode_batch),
+        spfm_runtime.vae,
+        decode_batch=int(spfm_runtime.args.decode_batch),
         out_path=os.path.join(ns.output_root, "dog_bank_preview.png"),
     )
     _save_bank_preview(
         mixed_bank,
-        retrieval_runtime.vae,
-        decode_batch=int(retrieval_runtime.args.decode_batch),
+        spfm_runtime.vae,
+        decode_batch=int(spfm_runtime.args.decode_batch),
         out_path=os.path.join(ns.output_root, "mixed_bank_preview.png"),
     )
 
@@ -673,11 +673,11 @@ def main() -> int:
     summary = {
         "seed": int(ns.seed),
         "device": str(device),
-        "baseline_ckpt": baseline_runtime.ckpt_path,
-        "retrieval_ckpt": retrieval_runtime.ckpt_path,
-        "sample_steps": int(baseline_runtime.args.sample_steps),
-        "t_eps": float(baseline_runtime.args.t_eps),
-        "noise_scale": float(baseline_runtime.args.noise_scale),
+        "dit_ckpt": dit_runtime.ckpt_path,
+        "spfm_ckpt": spfm_runtime.ckpt_path,
+        "sample_steps": int(dit_runtime.args.sample_steps),
+        "t_eps": float(dit_runtime.args.t_eps),
+        "noise_scale": float(dit_runtime.args.noise_scale),
         "cat_db_spec": cat_spec,
         "dog_db_spec": dog_spec,
         "mixed_db_spec": mixed_spec,
@@ -700,16 +700,16 @@ def main() -> int:
         "steer_topk": int(ns.steer_topk),
         "outputs": outputs,
         "latent_norms": {
-            "baseline": float(baseline_latent.float().reshape(1, -1).norm(dim=-1).item()),
-            f"retrieval_{cat_tag}": float(retrieval_cat_latent.float().reshape(1, -1).norm(dim=-1).item()),
-            f"retrieval_{dog_tag}": float(retrieval_dog_latent.float().reshape(1, -1).norm(dim=-1).item()),
-            f"baseline_plus_steer_{cat_tag}": float(steer_cat_latent.float().reshape(1, -1).norm(dim=-1).item()),
-            f"baseline_plus_steer_{dog_tag}": float(steer_dog_latent.float().reshape(1, -1).norm(dim=-1).item()),
-            f"retrieval_{mixed_tag}": float(retrieval_mixed_latent.float().reshape(1, -1).norm(dim=-1).item()),
-            f"retrieval_{mixed_tag}_plus_steer_{dog_tag}": float(
+            "dit": float(dit_latent.float().reshape(1, -1).norm(dim=-1).item()),
+            f"spfm_{cat_tag}": float(spfm_cat_latent.float().reshape(1, -1).norm(dim=-1).item()),
+            f"spfm_{dog_tag}": float(spfm_dog_latent.float().reshape(1, -1).norm(dim=-1).item()),
+            f"dit_plus_steer_{cat_tag}": float(steer_cat_latent.float().reshape(1, -1).norm(dim=-1).item()),
+            f"dit_plus_steer_{dog_tag}": float(steer_dog_latent.float().reshape(1, -1).norm(dim=-1).item()),
+            f"spfm_{mixed_tag}": float(spfm_mixed_latent.float().reshape(1, -1).norm(dim=-1).item()),
+            f"spfm_{mixed_tag}_plus_steer_{dog_tag}": float(
                 mixed_plus_steer_dog_latent.float().reshape(1, -1).norm(dim=-1).item()
             ),
-            f"retrieval_{mixed_tag}_plus_steer_{cat_tag}": float(
+            f"spfm_{mixed_tag}_plus_steer_{cat_tag}": float(
                 mixed_plus_steer_cat_latent.float().reshape(1, -1).norm(dim=-1).item()
             ),
         },

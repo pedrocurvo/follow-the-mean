@@ -40,7 +40,7 @@ SPFM_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${SPFM_DIR}" || exit 1
 
 # Choose experiment config with first arg, defaulting to model.
-EXP_CONFIG="${1:-experiments/baseline_dit.yaml}"
+EXP_CONFIG="${1:-experiments/dit.yaml}"
 echo "[train.sh] Using config: ${EXP_CONFIG}"
 
 PYTHON_BIN="/home/pcurvo/.conda/envs/hfm/bin/python"
