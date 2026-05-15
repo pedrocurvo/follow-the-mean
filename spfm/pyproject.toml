@@ -1,0 +1,28 @@
+[project]
+name = "hfm"
+version = "0.1.0"
+description = "Hierarchical Memory Flows prototype (CLIP keys + VAE values)"
+requires-python = ">=3.10"
+dependencies = [
+  "torch",
+  "torchvision",
+  "torchmetrics",
+  "datasets",
+  "diffusers",
+  "transformers",
+  "accelerate",
+  "safetensors",
+  "pillow",
+  "numpy",
+  "tqdm",
+  "torch-fidelity",
+  "clean-fid",
+]
+
+[project.optional-dependencies]
+dev = ["ruff", "black"]
+metrics = ["torch-fidelity"]
+faiss = ["faiss-cpu"]  # GPU FAISS installed separately (conda/module) on H100
+
+[tool.ruff]
+line-length = 100

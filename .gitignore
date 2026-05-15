@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local/editor noise
+.DS_Store
+*.swp
+*.swo
+
+# Logs and scheduler output
+logs/
+**/logs/
+slurm-*.out
+*.out
+out/slurm_output/
+**/out/slurm_output/
+
+# Experiment outputs
+out/
+**/out/
+wandb/
+**/wandb/
+checkpoints/
+**/checkpoints/
+checkpoint_*/
+**/checkpoint_*/
+
+# Model checkpoints and generated tensors
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.npz
+*.npy
+
+# Generated image/report artifacts
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.pdf
+
+# Large/local data stores
+data/
+datasets/
+artifacts/
+evals/
+outputs/
