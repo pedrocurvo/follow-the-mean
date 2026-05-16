@@ -6,6 +6,8 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 .ipynb_checkpoints/
+.cache/
+**/.cache/
 
 # Virtual environments
 .venv/
@@ -49,6 +51,15 @@ checkpoint_*/
 *.jpeg
 *.gif
 *.pdf
+
+# Published README figures
+!moons/images/
+!moons/images/**/
+!moons/images/**/*.png
+!moons/images/**/*.pdf
+!mnist/images/
+!mnist/images/**/*.png
+!mnist/images/**/*.pdf
 
 # Large/local data stores
 data/

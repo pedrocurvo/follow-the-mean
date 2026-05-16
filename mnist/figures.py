@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+"""Generate closed-form MNIST steering figures.
+
+This experiment restricts MNIST to digits 0 and 1. Sparse labels are used to
+estimate class posteriors under the flow kernel, and generated samples are
+steered by those posteriors. No neural network is trained.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -82,7 +89,7 @@ def _load_steerability_cache(
     if int(cache["target_class"]) != target_class:
         return None
 
-    print(f"[mnist_paper_figures] loading cached steerability data from {cache_path}")
+    print(f"[mnist/figures] loading cached steerability data from {cache_path}")
     return {key: cache[key] for key in expected}
 
 
@@ -134,6 +141,7 @@ def _render_steerability_plot(
     )
     plt.tight_layout()
     plt.savefig(output_path, dpi=200, bbox_inches="tight")
+    plt.savefig(output_path.with_suffix(".png"), dpi=200, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -145,7 +153,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--data-root",
         type=Path,
-        default=Path("/tmp/mnist"),
+        default=Path("data/mnist"),
         help="Directory where MNIST will be stored/read.",
     )
     parser.add_argument(
@@ -426,6 +434,7 @@ def save_mnist_grid(
 
     plt.tight_layout()
     plt.savefig(output_path, dpi=200, bbox_inches="tight")
+    plt.savefig(output_path.with_suffix(".png"), dpi=200, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -499,6 +508,7 @@ def plot_accuracy_vs_t(
     ax.legend(frameon=False, fontsize=11)
     plt.tight_layout()
     plt.savefig(output_path, dpi=200, bbox_inches="tight")
+    plt.savefig(output_path.with_suffix(".png"), dpi=200, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -544,6 +554,7 @@ def plot_accuracy_vs_m(
     ax.legend(frameon=False, fontsize=11)
     plt.tight_layout()
     plt.savefig(output_path, dpi=200, bbox_inches="tight")
+    plt.savefig(output_path.with_suffix(".png"), dpi=200, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -619,7 +630,7 @@ def plot_steerability_vs_m(
             uncond_accs=np.array(uncond_accs),
             hard_accs=np.array(hard_accs),
         )
-        print(f"[mnist_paper_figures] wrote cached steerability data to {cache_path}")
+        print(f"[mnist/figures] wrote cached steerability data to {cache_path}")
     else:
         steer_means = cached["steer_means"]
         steer_stds = cached["steer_stds"]
@@ -656,18 +667,18 @@ def main() -> int:
                 cached["hard_accs"],
                 steerability_path,
             )
-            print(f"[mnist_paper_figures] wrote figures to {args.output_dir}")
+            print(f"[mnist/figures] wrote figures to {args.output_dir}")
             return 0
 
-    print(f"[mnist_paper_figures] device={device}")
-    print(f"[mnist_paper_figures] loading MNIST 0/1 subset with N={args.n_mnist}")
+    print(f"[mnist/figures] device={device}")
+    print(f"[mnist/figures] loading MNIST 0/1 subset with N={args.n_mnist}")
     X, y, mean_vec, std_vec = load_mnist_binary_subset(args.data_root, args.n_mnist, device)
     print(
-        f"[mnist_paper_figures] loaded {len(X)} samples: zeros={(y == 0).sum().item()} ones={(y == 1).sum().item()}"
+        f"[mnist/figures] loaded {len(X)} samples: zeros={(y == 0).sum().item()} ones={(y == 1).sum().item()}"
     )
 
     if generate_all or "accuracy-t" in requested:
-        print("[mnist_paper_figures] plotting label accuracy vs t")
+        print("[mnist/figures] plotting label accuracy vs t")
         plot_accuracy_vs_t(
             X=X,
             y=y,
@@ -678,7 +689,7 @@ def main() -> int:
         )
 
     if generate_all or "accuracy-m" in requested:
-        print("[mnist_paper_figures] plotting label accuracy vs M")
+        print("[mnist/figures] plotting label accuracy vs M")
         plot_accuracy_vs_m(
             X=X,
             y=y,
@@ -688,7 +699,7 @@ def main() -> int:
         )
 
     if generate_all or "samples" in requested:
-        print(f"[mnist_paper_figures] generating sample grids with M={args.m_labeled}")
+        print(f"[mnist/figures] generating sample grids with M={args.m_labeled}")
         X_l, y_l, X_u, _ = select_labeled(X, y, args.m_labeled, seed=args.seed)
         traj_0 = generate_samples(
             X_u,
@@ -724,7 +735,7 @@ def main() -> int:
         )
 
     if generate_all or "steerability" in requested:
-        print("[mnist_paper_figures] plotting steerability vs M")
+        print("[mnist/figures] plotting steerability vs M")
         plot_steerability_vs_m(
             X=X,
             y=y,
@@ -735,7 +746,7 @@ def main() -> int:
             output_path=args.output_dir / "mnist_steerability_vs_m.pdf",
         )
 
-    print(f"[mnist_paper_figures] wrote figures to {args.output_dir}")
+    print(f"[mnist/figures] wrote figures to {args.output_dir}")
     return 0
 
 

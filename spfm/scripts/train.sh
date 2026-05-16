@@ -21,9 +21,13 @@ source activate hfm
 # Keep token in ~/.cache/huggingface/token
 unset HF_HOME
 
-# Move heavy caches off /tmp
-export HF_DATASETS_CACHE=/projects/prjs1771/hf/datasets
-export HF_HUB_CACHE=/projects/prjs1771/hf/hub
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SPFM_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+cd "${SPFM_DIR}" || exit 1
+
+# Keep heavy caches inside spfm/ unless overridden.
+export HF_DATASETS_CACHE="${HF_DATASETS_CACHE:-${SPFM_DIR}/.cache/hf/datasets}"
+export HF_HUB_CACHE="${HF_HUB_CACHE:-${SPFM_DIR}/.cache/hf/hub}"
 mkdir -p "$HF_DATASETS_CACHE" "$HF_HUB_CACHE"
 
 # Enable TF32 for cuBLAS and cuDNN
@@ -35,13 +39,9 @@ export CUDA_LAUNCH_BLOCKING=0
 # Reduce CUDA memory fragmentation
 export PYTORCH_ALLOC_CONF=expandable_segments:True
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SPFM_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-cd "${SPFM_DIR}" || exit 1
-
 # Choose experiment config with first arg, defaulting to model.
 EXP_CONFIG="${1:-experiments/dit.yaml}"
 echo "[train.sh] Using config: ${EXP_CONFIG}"
 
-PYTHON_BIN="/home/pcurvo/.conda/envs/hfm/bin/python"
+PYTHON_BIN="${PYTHON_BIN:-python}"
 srun "${PYTHON_BIN}" run_experiment.py --config "${EXP_CONFIG}"

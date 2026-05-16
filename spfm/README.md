@@ -50,9 +50,9 @@ source activate hfm
 The scripts use:
 
 ```bash
-PYTHON_BIN=/home/pcurvo/.conda/envs/hfm/bin/python
-HF_DATASETS_CACHE=/projects/prjs1771/hf/datasets
-HF_HUB_CACHE=/projects/prjs1771/hf/hub
+PYTHON_BIN=python
+HF_DATASETS_CACHE=spfm/.cache/hf/datasets
+HF_HUB_CACHE=spfm/.cache/hf/hub
 ```
 
 Override these as environment variables if needed.
@@ -62,22 +62,22 @@ Override these as environment variables if needed.
 Submit the DiT config:
 
 ```bash
-cd /home/pcurvo/follow-the-mean-rgfm/spfm
+cd spfm
 sbatch scripts/train.sh experiments/dit.yaml
 ```
 
 Submit the SPFM config:
 
 ```bash
-cd /home/pcurvo/follow-the-mean-rgfm/spfm
+cd spfm
 sbatch scripts/train.sh experiments/spfm.yaml
 ```
 
 For a non-SLURM dry run that only prints the generated command:
 
 ```bash
-/home/pcurvo/.conda/envs/hfm/bin/python run_experiment.py --config experiments/spfm.yaml --dry-run
-/home/pcurvo/.conda/envs/hfm/bin/python run_experiment.py --config experiments/dit.yaml --dry-run
+python run_experiment.py --config experiments/spfm.yaml --dry-run
+python run_experiment.py --config experiments/dit.yaml --dry-run
 ```
 
 Outputs default to:
@@ -110,7 +110,7 @@ out/dit_afhq_10k
 Use one launcher for all eval modes:
 
 ```bash
-cd /home/pcurvo/follow-the-mean-rgfm/spfm
+cd spfm
 MODE=spfm-catdog sbatch --gres=gpu:4 scripts/eval.sh
 ```
 
@@ -121,7 +121,7 @@ CONFIG=experiments/spfm.yaml
 CKPT=out/spfm_afhq_cat_dog/model_step10000.pt
 MODEL_TAG=my_eval_name
 RESULTS_DIR=out/evals/custom
-ARTIFACTS_ROOT=/projects/prjs1771/follow-the-mean-rgfm/evals/my_eval_name
+ARTIFACTS_ROOT=out/evals/artifacts/my_eval_name
 TOTAL_GEN=50000
 SAMPLE_STEPS=20
 GEN_BATCH=128
@@ -139,7 +139,7 @@ MODE=class-balance CAT_PCTS="100 50 0" TOTAL_GEN=1000 sbatch --gres=gpu:1 script
 MODE=lpips DB_SIZES="10 100 1000" COMPOSITIONS="cat100_dog0 cat50_dog50" sbatch --gres=gpu:1 scripts/eval.sh
 MODE=nn-triplet sbatch --gres=gpu:1 scripts/eval.sh
 MODE=nn-triplet-steer STEER_STRENGTH=1.0 sbatch --gres=gpu:1 scripts/eval.sh
-MODE=metrics-only GENERATED_DIR=/path/generated REFERENCE_DIR=/path/reference sbatch --gres=gpu:1 scripts/eval.sh
+MODE=metrics-only GENERATED_DIR=out/generated REFERENCE_DIR=out/reference sbatch --gres=gpu:1 scripts/eval.sh
 MODE=fixed-seed sbatch --gres=gpu:1 scripts/eval.sh
 ```
 
@@ -150,12 +150,12 @@ Evaluation outputs go under `out/evals/...` by default. Generated image artifact
 Most runs should go through `scripts/eval.sh`, but the helper tools can be called directly:
 
 ```bash
-/home/pcurvo/.conda/envs/hfm/bin/python eval_checkpoint.py --help
-/home/pcurvo/.conda/envs/hfm/bin/python eval_tools/image_folder_metrics.py --help
-/home/pcurvo/.conda/envs/hfm/bin/python eval_tools/nn_triplet.py --help
-/home/pcurvo/.conda/envs/hfm/bin/python eval_tools/nn_triplet_steering.py --help
-/home/pcurvo/.conda/envs/hfm/bin/python eval_tools/lpips_metrics.py --help
-/home/pcurvo/.conda/envs/hfm/bin/python eval_tools/fixed_seed_comparison.py --help
+python eval_checkpoint.py --help
+python eval_tools/image_folder_metrics.py --help
+python eval_tools/nn_triplet.py --help
+python eval_tools/nn_triplet_steering.py --help
+python eval_tools/lpips_metrics.py --help
+python eval_tools/fixed_seed_comparison.py --help
 ```
 
 ## Notes

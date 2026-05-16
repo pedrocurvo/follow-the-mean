@@ -2,7 +2,7 @@ train:
   dataset:
     dataset: huggan/AFHQv2
     split: train
-    db_dir: /projects/prjs1771/repa_e_afhq_v2_baseline
+    db_dir: data/repa_e_afhq_v2_baseline
     image_size: 256
     batch_size: 64
     db_batch_size: 8

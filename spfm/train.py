@@ -841,7 +841,7 @@ def parse_args(input_args=None):
         default=None,
         help="Root for temporary eval/sample artifacts. Defaults to $TMPDIR or the system temp dir.",
     )
-    ap.add_argument("--db_dir", default="/tmp/pairflow_vae_db")
+    ap.add_argument("--db_dir", default="data/pairflow_vae_db")
     ap.add_argument("--hf_limit", type=int, default=0)
     ap.add_argument("--hf_streaming", action="store_true")
     ap.add_argument("--hf_streaming_buffer", type=int, default=10_000)

@@ -10,7 +10,7 @@
 #   MODE=lpips DB_SIZES="10 100 1000" COMPOSITIONS="cat100_dog0 cat50_dog50" sbatch --gres=gpu:1 scripts/eval.sh
 #   MODE=nn-triplet sbatch --gres=gpu:1 scripts/eval.sh
 #   MODE=nn-triplet-steer STEER_STRENGTH=1.0 sbatch --gres=gpu:1 scripts/eval.sh
-#   MODE=metrics-only GENERATED_DIR=/path/generated REFERENCE_DIR=/path/reference sbatch --gres=gpu:1 scripts/eval.sh
+#   MODE=metrics-only GENERATED_DIR=out/generated REFERENCE_DIR=out/reference sbatch --gres=gpu:1 scripts/eval.sh
 #   MODE=fixed-seed sbatch --gres=gpu:1 scripts/eval.sh
 #
 # Common overrides:
@@ -18,7 +18,7 @@
 #   CKPT=out/spfm_afhq_cat_dog/model_step10000.pt
 #   MODEL_TAG=my_eval_name
 #   RESULTS_DIR=out/evals/custom
-#   ARTIFACTS_ROOT=/projects/prjs1771/follow-the-mean-rgfm/evals/my_eval_name
+#   ARTIFACTS_ROOT=out/evals/artifacts/my_eval_name
 #   TOTAL_GEN=50000 SAMPLE_STEPS=20 GEN_BATCH=128 USE_EMA=false NUM_PROCESSES=4
 #
 # Modes:
@@ -56,19 +56,20 @@ module load CUDA/12.4.0
 source activate hfm
 
 unset HF_HOME
-export HF_DATASETS_CACHE="${HF_DATASETS_CACHE:-/projects/prjs1771/hf/datasets}"
-export HF_HUB_CACHE="${HF_HUB_CACHE:-/projects/prjs1771/hf/hub}"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SPFM_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+cd "${SPFM_DIR}" || exit 1
+
+export HF_DATASETS_CACHE="${HF_DATASETS_CACHE:-${SPFM_DIR}/.cache/hf/datasets}"
+export HF_HUB_CACHE="${HF_HUB_CACHE:-${SPFM_DIR}/.cache/hf/hub}"
 mkdir -p "${HF_DATASETS_CACHE}" "${HF_HUB_CACHE}"
 
 export NVIDIA_TF32_OVERRIDE="${NVIDIA_TF32_OVERRIDE:-1}"
 export CUDA_LAUNCH_BLOCKING="${CUDA_LAUNCH_BLOCKING:-0}"
 export PYTORCH_ALLOC_CONF="${PYTORCH_ALLOC_CONF:-expandable_segments:True}"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SPFM_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-cd "${SPFM_DIR}" || exit 1
-
-PYTHON_BIN="${PYTHON_BIN:-/home/pcurvo/.conda/envs/hfm/bin/python}"
+PYTHON_BIN="${PYTHON_BIN:-python}"
 MODE="${MODE:-spfm-catdog}"
 CONFIG="${CONFIG:-}"
 MODEL_DIR="${MODEL_DIR:-}"
@@ -95,7 +96,7 @@ set_spfm_defaults() {
   MODEL_DIR="${MODEL_DIR:-out/spfm_afhq_cat_dog}"
   CKPT="${CKPT:-${MODEL_DIR}/model_step10000.pt}"
   MODEL_TAG="${MODEL_TAG:-$(basename "${MODEL_DIR}")_step10000}"
-  ARTIFACTS_ROOT="${ARTIFACTS_ROOT:-/projects/prjs1771/follow-the-mean-rgfm/evals/${MODEL_TAG}}"
+  ARTIFACTS_ROOT="${ARTIFACTS_ROOT:-out/evals/artifacts/${MODEL_TAG}}"
 }
 
 set_dit_defaults() {
@@ -103,7 +104,7 @@ set_dit_defaults() {
   MODEL_DIR="${MODEL_DIR:-out/dit_afhq_10k}"
   CKPT="${CKPT:-${MODEL_DIR}/model_step10000.pt}"
   MODEL_TAG="${MODEL_TAG:-dit_afhq_10k_step10000}"
-  ARTIFACTS_ROOT="${ARTIFACTS_ROOT:-/projects/prjs1771/follow-the-mean-rgfm/evals/${MODEL_TAG}}"
+  ARTIFACTS_ROOT="${ARTIFACTS_ROOT:-out/evals/artifacts/${MODEL_TAG}}"
 }
 
 run_model_catdog() {
