@@ -58,6 +58,8 @@ checkpoint_*/
 !moons/images/**/*.png
 !moons/images/**/*.pdf
 !mnist/images/
+!mnist/images/*.png
+!mnist/images/*.pdf
 !mnist/images/**/*.png
 !mnist/images/**/*.pdf
 
