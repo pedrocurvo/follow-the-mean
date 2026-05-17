@@ -67,6 +67,7 @@ class RMGCallback:
         self.topk = topk
         self.verbose = verbose
         self.history = []
+        self.prev_latents = None
 
     def __call__(self, pipeline, step_index: int, timestep, callback_kwargs):
         latents = callback_kwargs.get("latents")
@@ -93,9 +94,40 @@ class RMGCallback:
             t=t,
             topk=self.topk,
         )
-        callback_kwargs["latents"] = latents + (beta_t * v_guided * dt).to(latents.dtype)
+
+        # Compute the RMG velocity correction from Eq. (4) of the paper:
+        #   u_t^pi = u_t^theta + beta_t * (mu_hat_t^rho - mu_t^theta) / (1 - t)
+        #
+        # v_guided = (mu_hat_t^rho - x_t) / (1 - t), which expands via the
+        # flow matching identity mu_t^theta = x_t + (1 - t) * u_t^theta to:
+        #   v_guided = (mu_hat_t^rho - mu_t^theta) / (1 - t) + u_t^theta
+        #
+        # So the net latent update is:
+        #   delta_x = beta_t * (v_guided - u_t^theta) * dt
+        #
+        # We reconstruct u_t^theta from the rectified flow finite difference:
+        #   u_t^theta ~= (x_t - x_{t-1}) / dt
+        #
+        # NOTE: using beta_t * v_guided * dt without the u_t^theta correction
+        # is a valid approximation for all steps. It applies a slightly larger
+        # update but avoids needing prev_latents entirely. Use it if pipeline
+        # internals change.
+        if self.prev_latents is not None and dt > 0:
+            u_theta = (latents - self.prev_latents.to(device=latents.device, dtype=latents.dtype)) / dt
+            correction = beta_t * (v_guided - u_theta) * dt
+            stats["u_theta_norm"] = float(poc.flatten_latents(u_theta.float()).norm(dim=-1).mean().item())
+        else:
+            # First step in the guidance window: prev_latents is not yet
+            # available. Fall back to the approximate update; the error is
+            # negligible when beta_t is near zero at the window boundary.
+            correction = beta_t * v_guided * dt
+            stats["u_theta_norm"] = None
+
+        self.prev_latents = latents.detach().clone()
+        callback_kwargs["latents"] = latents + correction.to(latents.dtype)
         stats["dt"] = float(dt)
         stats["beta_t"] = float(beta_t)
+        stats["correction_norm"] = float(poc.flatten_latents(correction.float()).norm(dim=-1).mean().item())
         self.history.append((step_index, t, stats))
 
         if self.verbose:

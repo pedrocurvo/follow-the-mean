@@ -179,6 +179,16 @@ See `spfm/README.md` for environment assumptions, training, evaluation modes, an
 
 The lightweight experiments (`moons/`, `mnist/`) use standard Python scientific packages. The image experiments require a heavier environment with PyTorch, diffusers, transformers, and GPU access.
 
+The heavier image folders keep separate `pyproject.toml` files because their environments are not identical:
+
+```bash
+cd rgm
+python -m pip install -e ".[eval]"
+
+cd ../spfm
+python -m pip install -e ".[metrics]"
+```
+
 A typical environment needs:
 
 ```text

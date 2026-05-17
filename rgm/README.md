@@ -287,6 +287,17 @@ CLIP scores are used for continuous similarity checks. VLM prompts are used for 
 
 These scripts load FLUX.2 through `diffusers` and evaluation models through `transformers`. The main generation path expects a GPU for practical runtimes.
 
+Install the RMG dependencies from this folder:
+
+```bash
+cd rgm
+python -m pip install -e ".[eval]"
+```
+
+The `eval` extra adds LPIPS for the reference-size ablation. The CLIP and VLM evaluators use `transformers`, which is part of the base RMG environment.
+
+Seeded diffusion runs are only reproducible under the same runtime conditions. Changing the GPU class, CUDA/PyTorch/diffusers versions, pipeline implementation, precision, scheduler defaults, or Hugging Face model snapshot/cache can produce different images even when the prompt, seed, image size, and number of steps are identical. For exact comparisons, run on the same hardware class with the same environment and cache settings used to generate the reference outputs.
+
 The default model id is:
 
 ```text

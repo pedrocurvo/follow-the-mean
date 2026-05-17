@@ -1,0 +1,27 @@
+[project]
+name = "follow-the-mean-rgm"
+version = "0.1.0"
+description = "Reference-Mean Guidance experiments for frozen FLUX.2 image generation"
+requires-python = ">=3.10"
+dependencies = [
+  "torch",
+  "numpy",
+  "pillow",
+  "PyYAML",
+  "diffusers",
+  "transformers",
+  "accelerate",
+  "safetensors",
+  "huggingface-hub",
+  "matplotlib",
+]
+
+[project.optional-dependencies]
+eval = ["lpips"]
+dev = ["ruff", "black"]
+
+[tool.setuptools]
+py-modules = []
+
+[tool.ruff]
+line-length = 100

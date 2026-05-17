@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.egg-info/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
@@ -28,6 +29,8 @@ out/slurm_output/
 **/out/slurm_output/
 
 # Experiment outputs
+runs/
+**/runs/
 out/
 **/out/
 wandb/
