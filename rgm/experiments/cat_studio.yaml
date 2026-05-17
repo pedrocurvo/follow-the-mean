@@ -1,0 +1,28 @@
+name: cat_studio
+script: training_free_control.py
+sections:
+- case
+common:
+  out_dir: runs/cat_studio
+  seed: 323
+  num_inference_steps: 50
+  height: 768
+  width: 768
+retrieval:
+  reuse_reference: true
+  reference_size: 20
+  guidance_strength: 1.0
+  beta_schedule: quadratic-decay
+  guidance_start_frac: 0.15
+  guidance_end_frac: 0.95
+  topk: 4
+  callback_verbose: false
+case:
+  slug: cat_studio
+  prompt: a portrait of a cat
+  reference_set:
+    type: prompts
+    label: studio cat reference
+    prompt: a studio photograph of a cat
+stage_references:
+- source: a-studio-photograph-of-a-catx20-365002253f2b

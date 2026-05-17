@@ -1,0 +1,39 @@
+name: ablate_sampling_steps
+script: ablate_sampling_steps.py
+common:
+  out_dir: runs/ablate_sampling_steps
+  num_inference_steps: 20
+retrieval:
+  reuse_reference: true
+  reference_size: 27
+  guidance_strength: 0.2
+  beta_schedule: quadratic-decay
+  guidance_start_frac: 0.0
+  guidance_end_frac: 0.85
+  topk: 10
+  callback_verbose: false
+args:
+  prompt: a gymnast performing a ring leap, full body visible, airborne, one leg extended forward, the back leg bent high
+    behind the head, arched back, pointed toes, arms extended, dynamic sports photograph
+  control_anatomy_image_dir: references/ring-leap
+  case_slug: gymnast_ring_leap_nfe
+  nfe_values:
+  - 10
+  - 20
+  - 30
+  - 50
+  - 100
+  - 200
+  guidance_strength_values:
+  - 0.1
+  - 0.2
+  - 0.4
+  - 0.5
+  - 1.0
+  vlm_model_id: Qwen/Qwen2-VL-7B-Instruct
+  success_question: Does this image show a gymnast performing a split ring leap? Answer yes or no.
+  artifact_question: Does this image contain visible anatomical or generative artifacts, such as extra limbs, missing limbs,
+    distorted hands or feet, or implausible body structure? Answer yes or no.
+  pose_score_question: How closely does the pose match a split ring leap? Answer with an integer from 1 to 5.
+  skip_vlm: false
+  skip_pose_score: false

@@ -1,0 +1,44 @@
+name: ablation_betas
+script: training_free_control.py
+sections:
+- ablation-beta
+common:
+  out_dir: runs/ablation_betas
+retrieval:
+  reuse_reference: true
+  reference_size: 20
+  guidance_strength: 0.5
+  beta_schedule: quadratic-decay
+  guidance_start_frac: 0.15
+  guidance_end_frac: 0.85
+  topk: 4
+  callback_verbose: false
+ablation_beta:
+  schedules:
+  - constant
+  - bell
+  - quadratic-decay
+  strengths:
+  - 0.01
+  - 0.1
+  - 0.2
+  - 0.3
+  - 0.4
+  - 0.5
+  - 1.0
+  - 1.5
+  - 2.0
+  specs:
+  - slug: elephant_pink_reference
+    title: 'Ablation beta: elephant with pink elephant reference'
+    prompt: an elephant in a jungle
+    reference_label: pink elephant reference
+    reference_prompt: a pink elephant
+  - slug: savanna_giraffe_reference
+    title: 'Ablation beta: savanna animal with giraffe reference'
+    prompt: an animal in a savanna
+    reference_label: giraffe reference
+    reference_prompt: a giraffe
+stage_references:
+- source: a-pink-elephantx20-da106fd69346
+- source: a-giraffex20-f919e94c894b

@@ -1,0 +1,80 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+.cache/
+**/.cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local/editor noise
+.DS_Store
+*.swp
+*.swo
+
+# Logs and scheduler output
+batch*.sh
+**/batch*.sh
+logs/
+**/logs/
+slurm-*.out
+*.out
+out/slurm_output/
+**/out/slurm_output/
+
+# Experiment outputs
+runs/
+**/runs/
+out/
+**/out/
+wandb/
+**/wandb/
+checkpoints/
+**/checkpoints/
+checkpoint_*/
+**/checkpoint_*/
+
+# Model checkpoints and generated tensors
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.npz
+*.npy
+
+# Generated image/report artifacts
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.pdf
+
+# Published README figures
+!moons/images/
+!moons/images/**/
+!moons/images/**/*.png
+!moons/images/**/*.pdf
+!mnist/images/
+!mnist/images/*.png
+!mnist/images/*.pdf
+!mnist/images/**/*.png
+!mnist/images/**/*.pdf
+
+# Large/local data stores
+data/
+datasets/
+artifacts/
+evals/
+outputs/
+
+# RGM generated reference sets
+rgm/references/*
+!rgm/references/.gitkeep

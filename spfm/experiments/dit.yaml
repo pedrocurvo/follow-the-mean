@@ -1,0 +1,104 @@
+train:
+  dataset:
+    dataset: huggan/AFHQv2
+    split: train
+    db_dir: data/repa_e_afhq_v2_baseline
+    image_size: 256
+    batch_size: 64
+    db_batch_size: 8
+    hf_limit: 0
+    hf_streaming: false
+    hf_streaming_buffer: 10000
+    N_img: none
+    num_workers: 12
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2
+    label_field: label
+    db: dog:1.0,cat:1.0
+    alt_db: dog:0.3,cat:0.7
+
+  model:
+    model: dit
+    vae_name: REPA-E/e2e-invae
+    embed_dim: 768
+    time_embed_dim: 256
+    learned_g: false
+    learned_alpha: false
+    learned_g_init: 0.5
+    learned_alpha_init: 0.5
+    cross_entmax_alpha: 1.5
+    cross_kv_freeze: false
+    value_adaln: false
+    cross:
+      depth: 12
+      mlp_ratio: 4
+      num_heads: 12
+      qk_dim: 768
+      chunk_size: 0
+      use_entmax: false
+      patchwise: true
+      patch_size: 2
+      decouple_embed: false
+    refiner:
+      depth: 0
+      embed_dim: 768
+      num_heads: 12
+      patch_size: 2
+      mlp_ratio: 4
+      penalty: 0.0
+
+  training:
+    train_steps: 10000
+    self_mask_db: true
+    loss_weight: inv_1_minus_t2
+    max_grad_norm: 1.0
+    ema_decay: 0.9999
+
+  optimizer:
+    optimizer: lion
+    lr: 1e-4
+    adam_beta1: 0.9
+    adam_beta2: 0.999
+    adam_epsilon: 1e-8
+    weight_decay: 0
+
+  sampling:
+    num_gen: 16
+    sample_steps: 20
+    noise_scale: 1.0
+    t_eps: 1e-3
+    decode_batch: 16
+    clip_model: openai/clip-vit-base-patch32
+    nn_clip_local_files_only: false
+    clip_eval_prompts:
+      - a photo of a dog
+      - a photo of a cat
+
+  metrics:
+    fid: true
+    kid: true
+
+  logging:
+    log_every: 100
+    sample_every: 1000
+    save_every: 10000
+    out_dir: out/dit_afhq_10k
+    exp_name: null
+    logging_dir: logs
+    report_to: wandb
+    wandb_project: semi-parametric-fm
+    wandb_entity: null
+    wandb_name: dit_afhq_10k
+    wandb_resume: allow
+
+  runtime:
+    enc_type: None
+    seed: 0
+    allow_tf32: false
+    mixed_precision: bf16
+    gradient_accumulation_steps: 1
+    ddp_find_unused_parameters: false
+    accelerate_num_processes: 4
+    accelerate_multi_gpu: true
+    accelerate_main_process_port: 29501

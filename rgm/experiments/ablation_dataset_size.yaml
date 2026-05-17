@@ -1,0 +1,41 @@
+name: ablation_dataset_size
+script: ablate_reference_size.py
+common:
+  out_dir: runs/ablation_dataset_size
+retrieval:
+  reuse_reference: true
+  reference_size: 128
+  guidance_strength: 1.0
+  beta_schedule: quadratic-decay
+  guidance_start_frac: 0.0
+  guidance_end_frac: 0.85
+  topk: 20
+  callback_verbose: false
+args:
+  prompt: an animal in a savanna
+  target_prompt: a giraffe
+  target_label: giraffe
+  target_question: 'Is the main animal a giraffe? Answer with exactly one word: yes or no.'
+  positive_text: a giraffe in a savanna
+  negative_text: an animal in a savanna
+  clip_model_id: openai/clip-vit-large-patch14
+  vlm_model_id: Qwen/Qwen2-VL-7B-Instruct
+  max_vlm_new_tokens: 8
+  skip_vlm: false
+  skip_lpips: false
+  subset_sizes:
+  - 1
+  - 2
+  - 4
+  - 8
+  - 16
+  - 32
+  - 64
+  - 128
+  num_samples: 50
+  num_subsets: 5
+  seed_stride: 1
+  subset_seed: 123
+stage_references:
+- source: full_target_reference
+  target: full_target_reference

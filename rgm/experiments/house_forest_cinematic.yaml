@@ -1,0 +1,28 @@
+name: house_forest_cinematic
+script: training_free_control.py
+sections:
+- case
+common:
+  out_dir: runs/house_forest_cinematic
+  seed: 423
+  num_inference_steps: 50
+  height: 768
+  width: 768
+retrieval:
+  reuse_reference: true
+  reference_size: 20
+  guidance_strength: 1.0
+  beta_schedule: quadratic-decay
+  guidance_start_frac: 0.15
+  guidance_end_frac: 0.95
+  topk: 4
+  callback_verbose: false
+case:
+  slug: house_forest_cinematic
+  prompt: a house in a forest
+  reference_set:
+    type: prompts
+    label: cinematic house forest reference
+    prompt: a cinematic photo of a house in a forest
+stage_references:
+- source: a-cinematic-photo-of-a-house-in-a-forestx20-cb5c4332b03a

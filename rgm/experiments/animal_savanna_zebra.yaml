@@ -1,0 +1,28 @@
+name: animal_savanna_zebra
+script: training_free_control.py
+sections:
+- case
+common:
+  out_dir: runs/animal_savanna_zebra
+  seed: 223
+  num_inference_steps: 50
+  height: 768
+  width: 768
+retrieval:
+  reuse_reference: true
+  reference_size: 20
+  guidance_strength: 1.0
+  beta_schedule: quadratic-decay
+  guidance_start_frac: 0.0
+  guidance_end_frac: 0.95
+  topk: 4
+  callback_verbose: false
+case:
+  slug: savanna_zebra
+  prompt: an animal in a savanna
+  reference_set:
+    type: prompts
+    label: zebra reference
+    prompt: a zebra
+stage_references:
+- source: a-zebrax20-4c065a5956cc

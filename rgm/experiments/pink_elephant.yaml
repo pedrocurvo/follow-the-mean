@@ -1,0 +1,29 @@
+name: pink_elephant
+script: training_free_control.py
+python: /home/pcurvo/.conda/envs/flux2-klein-runtime/bin/python
+sections:
+- case
+common:
+  out_dir: runs/pink_elephant
+  seed: 123
+  num_inference_steps: 50
+  height: 768
+  width: 768
+retrieval:
+  reuse_reference: true
+  reference_size: 20
+  guidance_strength: 0.5
+  beta_schedule: quadratic-decay
+  guidance_start_frac: 0.15
+  guidance_end_frac: 0.95
+  topk: 4
+  callback_verbose: false
+case:
+  slug: pink_elephant
+  prompt: an elephant in a jungle
+  reference_set:
+    type: prompts
+    label: pink elephant reference
+    prompt: a pink elephant
+stage_references:
+- source: a-pink-elephantx20-da106fd69346
