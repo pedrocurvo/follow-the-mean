@@ -1,0 +1,24 @@
+name: animal_savanna_giraffe
+script: training_free_control.py
+sections:
+- case
+common:
+  out_dir: runs/animal_savanna_giraffe
+retrieval:
+  reuse_reference: true
+  reference_size: 20
+  guidance_strength: 0.2
+  beta_schedule: bell
+  guidance_start_frac: 0.15
+  guidance_end_frac: 0.95
+  topk: 4
+  callback_verbose: false
+case:
+  slug: savanna_giraffe
+  prompt: an animal in a savanna
+  reference_set:
+    type: prompts
+    label: giraffe reference
+    prompt: a giraffe
+stage_references:
+- source: a-giraffex20-f919e94c894b

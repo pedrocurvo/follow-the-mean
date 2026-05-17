@@ -1,0 +1,22 @@
+name: hand_horns
+script: training_free_control.py
+sections:
+- case
+common:
+  out_dir: runs/hand_horns
+retrieval:
+  reuse_reference: true
+  reference_size: 20
+  guidance_strength: 0.2
+  beta_schedule: bell
+  guidance_start_frac: 0.15
+  guidance_end_frac: 0.95
+  topk: 4
+  callback_verbose: false
+case:
+  slug: hand_horns
+  prompt: a hand doing the sign of the horns
+  reference_set:
+    type: images
+    label: horns image reference
+    image_dir: references/horns

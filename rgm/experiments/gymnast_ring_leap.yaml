@@ -1,0 +1,23 @@
+name: gymnast_ring_leap
+script: training_free_control.py
+sections:
+- case
+common:
+  out_dir: runs/gymnast_ring_leap
+retrieval:
+  reuse_reference: true
+  reference_size: 20
+  guidance_strength: 0.2
+  beta_schedule: bell
+  guidance_start_frac: 0.15
+  guidance_end_frac: 0.95
+  topk: 4
+  callback_verbose: false
+case:
+  slug: gymnast_ring_leap
+  prompt: a gymnast performing a ring leap, full body visible, airborne, one leg extended forward, the back leg bent high
+    behind the head, arched back, pointed toes, arms extended, dynamic sports photograph
+  reference_set:
+    type: images
+    label: ring leap image reference
+    image_dir: references/ring-leap

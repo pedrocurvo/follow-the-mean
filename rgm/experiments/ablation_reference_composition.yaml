@@ -1,0 +1,54 @@
+name: ablation_reference_composition
+script: training_free_control.py
+sections:
+- controllability
+common:
+  out_dir: runs/ablation_reference_composition
+retrieval:
+  reuse_reference: true
+  reference_size: 20
+  guidance_strength: 0.2
+  beta_schedule: bell
+  guidance_start_frac: 0.15
+  guidance_end_frac: 0.95
+  topk: 4
+  callback_verbose: false
+controllability:
+  fractions:
+  - 0.0
+  - 0.25
+  - 0.5
+  - 0.75
+  - 1.0
+  specs:
+  - slug: elephant_color
+    title: 'Controllability via reference composition: elephant color'
+    prompt: an elephant in a jungle
+    source_prompt: an elephant
+    target_prompt: a pink elephant
+  - slug: cat_style
+    title: 'Controllability via reference composition: cat style'
+    prompt: a cat
+    source_prompt: a van gogh painting
+    target_prompt: a black and white sketch
+  - slug: savanna_object
+    title: 'Controllability via reference composition: savanna object'
+    prompt: an animal in a savanna
+    source_prompt: a zebra
+    target_prompt: a giraffe
+stage_references:
+- source: an-elephantx20-a713a05d67ec
+- source: a-pink-elephantx20-da106fd69346
+- source: a-pink-elephantx5-an-elephantx15-f0bbe47b0862
+- source: a-pink-elephantx10-an-elephantx10-2328a1e523c8
+- source: a-pink-elephantx15-an-elephantx5-abe5b9586856
+- source: a-van-gogh-paintingx20-8b561afec51e
+- source: a-black-and-white-sketchx20-51f64f6d4947
+- source: a-black-and-white-sketchx5-a-van-gogh-paintingx15-5f1d667f9cbe
+- source: a-black-and-white-sketchx10-a-van-gogh-paintingx10-acbd1b2fd7cc
+- source: a-black-and-white-sketchx15-a-van-gogh-paintingx5-d200ad106ab6
+- source: a-zebrax20-4c065a5956cc
+- source: a-giraffex20-f919e94c894b
+- source: a-giraffex5-a-zebrax15-a94842eb2ee8
+- source: a-giraffex10-a-zebrax10-9849a1924cf2
+- source: a-giraffex15-a-zebrax5-e090b15df0c4

@@ -69,3 +69,7 @@ datasets/
 artifacts/
 evals/
 outputs/
+
+# RGM generated reference sets
+rgm/references/*
+!rgm/references/.gitkeep
