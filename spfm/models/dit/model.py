@@ -5,10 +5,10 @@ from timm.models.vision_transformer import Attention, Mlp, PatchEmbed
 
 from models.time_embed import TimestepEmbedder
 
-
 # ---------------------------------------------------------------------------
 # AdaLN Helpers
 # ---------------------------------------------------------------------------
+
 
 def modulate(x: torch.Tensor, shift: torch.Tensor, scale: torch.Tensor) -> torch.Tensor:
     return x * (1 + scale.unsqueeze(1)) + shift.unsqueeze(1)
@@ -17,6 +17,7 @@ def modulate(x: torch.Tensor, shift: torch.Tensor, scale: torch.Tensor) -> torch
 # ---------------------------------------------------------------------------
 # DiT Blocks
 # ---------------------------------------------------------------------------
+
 
 class DiTBlock(nn.Module):
     def __init__(self, hidden_size: int, num_heads: int, mlp_ratio: float = 4.0):
@@ -38,9 +39,9 @@ class DiTBlock(nn.Module):
         )
 
     def forward(self, x: torch.Tensor, c: torch.Tensor) -> torch.Tensor:
-        shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = (
-            self.adaLN_modulation(c).chunk(6, dim=1)
-        )
+        shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = self.adaLN_modulation(
+            c
+        ).chunk(6, dim=1)
         x = x + gate_msa.unsqueeze(1) * self.attn(modulate(self.norm1(x), shift_msa, scale_msa))
         x = x + gate_mlp.unsqueeze(1) * self.mlp(modulate(self.norm2(x), shift_mlp, scale_mlp))
         return x
@@ -65,6 +66,7 @@ class FinalLayer(nn.Module):
 # ---------------------------------------------------------------------------
 # DiT Model
 # ---------------------------------------------------------------------------
+
 
 class LearnedPosteriorMean(nn.Module):
     """DiT that predicts mu directly from x_t and t with no retrieval or refiner."""
@@ -142,7 +144,7 @@ class LearnedPosteriorMean(nn.Module):
             bias=True,
         )
         num_patches = self.x_embedder.num_patches
-        grid_size = int(num_patches ** 0.5)
+        grid_size = int(num_patches**0.5)
         if grid_size * grid_size != num_patches:
             raise ValueError("dit requires a square patch grid")
         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches, embed_dim), requires_grad=False)
@@ -166,7 +168,7 @@ class LearnedPosteriorMean(nn.Module):
 
         pos_embed = get_2d_sincos_pos_embed(
             self.pos_embed.shape[-1],
-            int(self.x_embedder.num_patches ** 0.5),
+            int(self.x_embedder.num_patches**0.5),
         )
         self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
 
@@ -228,7 +230,10 @@ class LearnedPosteriorMean(nn.Module):
 # Positional Embeddings
 # ---------------------------------------------------------------------------
 
-def get_2d_sincos_pos_embed(embed_dim: int, grid_size: int, cls_token: bool = False, extra_tokens: int = 0):
+
+def get_2d_sincos_pos_embed(
+    embed_dim: int, grid_size: int, cls_token: bool = False, extra_tokens: int = 0
+):
     grid_h = np.arange(grid_size, dtype=np.float32)
     grid_w = np.arange(grid_size, dtype=np.float32)
     grid = np.meshgrid(grid_w, grid_h)

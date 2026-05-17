@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import logging
 import math
 import os
 import shutil
@@ -29,17 +28,15 @@ import sys
 import tempfile
 import time
 import warnings
-import zlib
-from collections import OrderedDict
 from copy import deepcopy
 from pathlib import Path
-from types import SimpleNamespace
 
 import torch
+from cleanfid import fid as cleanfid_fid
 from torch.utils.data import DataLoader
 from torchvision.utils import save_image
 from tqdm.auto import tqdm
-from cleanfid import fid as cleanfid_fid
+
 try:
     import wandb
 except Exception:
@@ -48,26 +45,37 @@ except Exception:
 from accelerate import Accelerator, DistributedDataParallelKwargs
 from accelerate.logging import get_logger
 from accelerate.utils import ProjectConfiguration, set_seed
-
 from preprocessing.encoders import load_invae
-from trainer.loss import (
-    compute_main_loss,
-    compute_drifting_loss,
-    compute_refiner_loss,
-    drifting_penalty_schedule,
-)
-from trainer.clip_eval import clip_eval as run_clip_eval
-from trainer.clip_eval import load_clip_runtime, prompt_metric_suffix
 from trainer.checkpoint import (
     is_full_training_checkpoint,
     load_full_training_checkpoint,
     save_full_training_checkpoint,
 )
-from trainer.db import AltDBArtifacts, build_alt_db, build_primary_db, build_train_latent_loader
+from trainer.clip_eval import clip_eval as run_clip_eval
+from trainer.clip_eval import load_clip_runtime, prompt_metric_suffix
+from trainer.db import build_alt_db, build_primary_db, build_train_latent_loader
+from trainer.loss import (
+    compute_drifting_loss,
+    compute_main_loss,
+    compute_refiner_loss,
+    drifting_penalty_schedule,
+)
 from trainer.model_factory import build_model
 from trainer.optim import build_optimizer, compute_grad_norm
 from trainer.sampling import log_quick_sample, run_quick_sample_nn
 from utils.io import load_encoders
+from utils.train_helpers import (
+    DEFAULT_IMAGE_SIZE,
+    RawVAE,
+    create_logger,
+    decode_latents,
+    ensure_dir,
+    generate_images_to_dir,
+    get_vae_scaling,
+    infer_vae_latent_spec,
+    update_ema,
+    vae_tag_from_name,
+)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -79,6 +87,7 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 # CLI Parsing Helpers
 # ---------------------------------------------------------------------------
+
 
 def _parse_bool(value):
     if isinstance(value, bool):
@@ -96,7 +105,9 @@ def _parse_optional_n_img(value):
         return None
     if isinstance(value, int):
         if value <= 0:
-            raise argparse.ArgumentTypeError("N_img must be > 0, or use 'none'/'all' for full dataset.")
+            raise argparse.ArgumentTypeError(
+                "N_img must be > 0, or use 'none'/'all' for full dataset."
+            )
         return value
     text = str(value).strip().lower()
     if text in {"none", "null", "all"}:
@@ -111,19 +122,6 @@ def _parse_optional_n_img(value):
         raise argparse.ArgumentTypeError("N_img must be > 0, or use 'none'/'all' for full dataset.")
     return n_img
 
-
-from utils.train_helpers import (
-    DEFAULT_IMAGE_SIZE,
-    RawVAE,
-    create_logger,
-    decode_latents,
-    ensure_dir,
-    generate_images_to_dir,
-    infer_vae_latent_spec,
-    get_vae_scaling,
-    update_ema,
-    vae_tag_from_name,
-)
 
 # ---------------------------------------------------------------------------
 # Runtime Helpers
@@ -151,7 +149,7 @@ def _write_latents_to_dir(
     ensure_dir(out_dir)
     count = 0
     for s in range(0, latents.shape[0], decode_batch):
-        imgs = decode_latents(vae, latents[s:s + decode_batch], decode_batch=decode_batch)
+        imgs = decode_latents(vae, latents[s : s + decode_batch], decode_batch=decode_batch)
         for i in range(imgs.shape[0]):
             save_image(imgs[i], os.path.join(out_dir, f"{prefix}{count:06d}.png"))
             count += 1
@@ -178,6 +176,7 @@ def _transient_root(args) -> str:
 # ---------------------------------------------------------------------------
 # Training Loop
 # ---------------------------------------------------------------------------
+
 
 def train_loop(
     args,
@@ -225,9 +224,12 @@ def train_loop(
     accelerator.register_for_checkpointing(ema)
 
     if not hasattr(torch, "compile"):
-        raise RuntimeError("torch.compile is not available in this PyTorch build; refiner compilation is required.")
+        raise RuntimeError(
+            "torch.compile is not available in this PyTorch build; refiner compilation is required."
+        )
     try:
         import torch._dynamo as dynamo  # type: ignore[attr-defined]
+
         dynamo.config.capture_scalar_outputs = True
     except Exception:
         pass
@@ -235,7 +237,9 @@ def train_loop(
     if isinstance(refiner, torch.nn.Module):
         model.refiner = torch.compile(refiner)
         if accelerator.is_main_process:
-            logger.info("[train] torch.compile enabled for refiner only (capture_scalar_outputs=True)")
+            logger.info(
+                "[train] torch.compile enabled for refiner only (capture_scalar_outputs=True)"
+            )
     elif accelerator.is_main_process:
         logger.warning("[train] model has no refiner module; skipping refiner compile.")
 
@@ -246,7 +250,9 @@ def train_loop(
         if is_full_training_checkpoint(args.ckpt):
             start_step = load_full_training_checkpoint(accelerator, args.ckpt)
             if accelerator.is_main_process:
-                logger.info("[train] resumed full training state from %s at step %d", args.ckpt, start_step)
+                logger.info(
+                    "[train] resumed full training state from %s at step %d", args.ckpt, start_step
+                )
         else:
             ckpt = torch.load(args.ckpt, map_location="cpu")
             _unwrap_model_for_runtime(model).load_state_dict(ckpt["model"])
@@ -254,14 +260,21 @@ def train_loop(
             ema.load_state_dict(ckpt["ema"])
             start_step = int(ckpt.get("step", 0))
             if accelerator.is_main_process:
-                logger.info("[train] resumed weights/optimizer from %s at step %d", args.ckpt, start_step)
+                logger.info(
+                    "[train] resumed weights/optimizer from %s at step %d", args.ckpt, start_step
+                )
 
     model.train()
     step = start_step
     t0 = time.time()
 
     it = iter(loader)
-    pbar = tqdm(total=args.train_steps, initial=step, desc="train", disable=not accelerator.is_local_main_process)
+    pbar = tqdm(
+        total=args.train_steps,
+        initial=step,
+        desc="train",
+        disable=not accelerator.is_local_main_process,
+    )
     clip_runtime = None
     clip_prompts = args.clip_eval_prompts or ["a photo of a dog", "a photo of a cat"]
     clip_prompts = [p.strip() for p in clip_prompts if p and p.strip()]
@@ -292,7 +305,7 @@ def train_loop(
                 db_mask = None
                 if args.self_mask_db and db_indices is not None and batch_idx is not None:
                     batch_idx = batch_idx.to(device=device, dtype=torch.long)
-                    db_mask = (db_indices[None, :] == batch_idx[:, None])
+                    db_mask = db_indices[None, :] == batch_idx[:, None]
 
                 B = z1.shape[0]
                 # Training loop
@@ -318,7 +331,9 @@ def train_loop(
                     Xdb_step,
                     **model_kwargs,
                 )
-                main_loss = compute_main_loss(mu=mu, x_data=x_data, t=t, loss_weight=args.loss_weight)
+                main_loss = compute_main_loss(
+                    mu=mu, x_data=x_data, t=t, loss_weight=args.loss_weight
+                )
 
                 # One-time diagnostic: measure pairwise distances for drifting_tau calibration
                 if step == 0 and accelerator.is_main_process and mu_ret is not None:
@@ -331,7 +346,10 @@ def train_loop(
                         logger.info(
                             "[drift-diag] mu_ret pairwise dist: mean=%.4f std=%.4f "
                             "(suggested drifting_tau=%.4f..%.4f)",
-                            _mean_d, _std_d, 0.3 * _mean_d, 0.5 * _mean_d,
+                            _mean_d,
+                            _std_d,
+                            0.3 * _mean_d,
+                            0.5 * _mean_d,
                         )
 
                 refiner_loss = None
@@ -356,7 +374,9 @@ def train_loop(
                 drift_v_mag = None
                 if args.drifting_penalty > 0 and mu_ret is not None:
                     drift_w = drifting_penalty_schedule(
-                        step, args.drifting_penalty, args.drifting_warmup,
+                        step,
+                        args.drifting_penalty,
+                        args.drifting_warmup,
                     )
                     if drift_w > 0:
                         drifting_loss, drift_v_mag = compute_drifting_loss(
@@ -379,7 +399,9 @@ def train_loop(
                 accelerator.backward(total_loss)
 
             if args.max_grad_norm > 0:
-                grad_norm = float(accelerator.clip_grad_norm_(model.parameters(), args.max_grad_norm).item())
+                grad_norm = float(
+                    accelerator.clip_grad_norm_(model.parameters(), args.max_grad_norm).item()
+                )
             else:
                 grad_norm = compute_grad_norm(model.parameters())
             if not math.isfinite(grad_norm):
@@ -447,12 +469,15 @@ def train_loop(
                 if accelerator.is_main_process:
                     logger.info("[train] saved full state %s", full_ckpt_dir)
                     save_path = os.path.join(save_dir, f"model_step{step}.pt")
-                    torch.save({
-                        "model": _unwrap_model_for_runtime(model).state_dict(),
-                        "ema": ema.state_dict(),
-                        "opt": opt.state_dict(),
-                        "step": step,
-                    }, save_path)
+                    torch.save(
+                        {
+                            "model": _unwrap_model_for_runtime(model).state_dict(),
+                            "ema": ema.state_dict(),
+                            "opt": opt.state_dict(),
+                            "step": step,
+                        },
+                        save_path,
+                    )
                     logger.info("[train] saved %s", save_path)
 
                 raw_model = _unwrap_model_for_runtime(model)
@@ -532,13 +557,21 @@ def train_loop(
 
                     if accelerator.is_main_process:
                         if args.fid:
-                            eval_metrics["eval/db_fid"] = float(cleanfid_fid.compute_fid(db_real_dir, db_gen_dir))
+                            eval_metrics["eval/db_fid"] = float(
+                                cleanfid_fid.compute_fid(db_real_dir, db_gen_dir)
+                            )
                             if alt_real_dir is not None and alt_gen_dir is not None:
-                                eval_metrics["eval/alt_fid"] = float(cleanfid_fid.compute_fid(alt_real_dir, alt_gen_dir))
+                                eval_metrics["eval/alt_fid"] = float(
+                                    cleanfid_fid.compute_fid(alt_real_dir, alt_gen_dir)
+                                )
                         if args.kid:
-                            eval_metrics["eval/db_kid"] = float(cleanfid_fid.compute_kid(db_real_dir, db_gen_dir))
+                            eval_metrics["eval/db_kid"] = float(
+                                cleanfid_fid.compute_kid(db_real_dir, db_gen_dir)
+                            )
                             if alt_real_dir is not None and alt_gen_dir is not None:
-                                eval_metrics["eval/alt_kid"] = float(cleanfid_fid.compute_kid(alt_real_dir, alt_gen_dir))
+                                eval_metrics["eval/alt_kid"] = float(
+                                    cleanfid_fid.compute_kid(alt_real_dir, alt_gen_dir)
+                                )
 
                         if clip_runtime is None:
                             try:
@@ -548,7 +581,9 @@ def train_loop(
                                     local_files_only=args.nn_clip_local_files_only,
                                 )
                             except Exception as exc:
-                                logger.warning("[eval] CLIP unavailable, skipping prompt percentages (%s)", exc)
+                                logger.warning(
+                                    "[eval] CLIP unavailable, skipping prompt percentages (%s)", exc
+                                )
                                 clip_runtime = False
                         if clip_runtime and clip_runtime is not False:
                             db_clip_scores = run_clip_eval(
@@ -661,12 +696,15 @@ def train_loop(
 
     if accelerator.is_main_process:
         save_path = os.path.join(save_dir, "model_last.pt")
-        torch.save({
-            "model": _unwrap_model_for_runtime(model).state_dict(),
-            "ema": ema.state_dict(),
-            "opt": opt.state_dict(),
-            "step": step,
-        }, save_path)
+        torch.save(
+            {
+                "model": _unwrap_model_for_runtime(model).state_dict(),
+                "ema": ema.state_dict(),
+                "opt": opt.state_dict(),
+                "step": step,
+            },
+            save_path,
+        )
         logger.info("[train] saved %s", save_path)
 
     return model
@@ -717,7 +755,7 @@ def main(args):
         ensure_dir(save_dir)
         args_dict = vars(args)
         json_dir = os.path.join(save_dir, "args.json")
-        with open(json_dir, 'w') as f:
+        with open(json_dir, "w") as f:
             json.dump(args_dict, f, indent=4)
         logger = create_logger(save_dir)
         logger.info("Experiment directory created at %s", save_dir)
@@ -733,9 +771,7 @@ def main(args):
             accelerator.init_trackers(
                 project_name=args.wandb_project,
                 config=args_dict,
-                init_kwargs={
-                    "wandb": wandb_init
-                },
+                init_kwargs={"wandb": wandb_init},
             )
 
     device = accelerator.device
@@ -769,7 +805,9 @@ def main(args):
         accelerator.wait_for_everyone()
         vae = load_invae(args.vae_name, device=device)
     vae.eval().requires_grad_(False)
-    latent_c, latent_h, latent_w, latent_downsample = infer_vae_latent_spec(vae, args.image_size, device)
+    latent_c, latent_h, latent_w, latent_downsample = infer_vae_latent_spec(
+        vae, args.image_size, device
+    )
     args.latent_c = latent_c
     args.latent_h = latent_h
     args.latent_w = latent_w
@@ -785,7 +823,11 @@ def main(args):
             expected_embed_dim = latent_c * args.cross_patch_size * args.cross_patch_size
     if args.embed_dim != expected_embed_dim:
         if accelerator.is_main_process:
-            logger.info("[model] overriding embed_dim to expected=%d (was %d)", expected_embed_dim, args.embed_dim)
+            logger.info(
+                "[model] overriding embed_dim to expected=%d (was %d)",
+                expected_embed_dim,
+                args.embed_dim,
+            )
         args.embed_dim = expected_embed_dim
     args.vae_scaling = get_vae_scaling(vae, args.vae_name)
     args.vae_tag = vae_tag_from_name(args.vae_name)
@@ -898,10 +940,7 @@ def parse_args(input_args=None):
         "--cross_attn_chunk_size",
         type=int,
         default=0,
-        help=(
-            "Chunk size over DB tokens for SPFM softmax retrieval; "
-            "0 disables chunking."
-        ),
+        help=("Chunk size over DB tokens for SPFM softmax retrieval; 0 disables chunking."),
     )
     ap.add_argument(
         "--cross_db_dropout",
@@ -936,10 +975,28 @@ def parse_args(input_args=None):
     ap.add_argument("--num_heads", type=int, default=12)
     ap.add_argument("--mlp_ratio", type=float, default=4.0)
     ap.add_argument("--refiner_mlp_ratio", type=float, default=None)
-    ap.add_argument("--learned_g", action="store_true", help="Use an MLP gate g(t) instead of fixed g(t)=4t(1-t).")
-    ap.add_argument("--learned_alpha", action="store_true", help="Use an MLP gate alpha(t) instead of fixed alpha(t)=alpha_max*t.")
-    ap.add_argument("--learned_g_init", type=float, default=0.5, help="Initial output value for learned g(t) in (0,1).")
-    ap.add_argument("--learned_alpha_init", type=float, default=0.5, help="Initial output value for learned alpha(t) in (0,1).")
+    ap.add_argument(
+        "--learned_g",
+        action="store_true",
+        help="Use an MLP gate g(t) instead of fixed g(t)=4t(1-t).",
+    )
+    ap.add_argument(
+        "--learned_alpha",
+        action="store_true",
+        help="Use an MLP gate alpha(t) instead of fixed alpha(t)=alpha_max*t.",
+    )
+    ap.add_argument(
+        "--learned_g_init",
+        type=float,
+        default=0.5,
+        help="Initial output value for learned g(t) in (0,1).",
+    )
+    ap.add_argument(
+        "--learned_alpha_init",
+        type=float,
+        default=0.5,
+        help="Initial output value for learned alpha(t) in (0,1).",
+    )
 
     # Training
     ap.add_argument("--train_steps", type=int, default=50000)
@@ -951,10 +1008,18 @@ def parse_args(input_args=None):
     ap.add_argument("--weight_decay", type=float, default=0)
     ap.add_argument("--log_every", type=int, default=50)
     ap.add_argument("--save_every", type=int, default=50000)
-    ap.add_argument("--fid", type=_parse_bool, default=True, help="Enable FID evaluation on save_every.")
-    ap.add_argument("--kid", type=_parse_bool, default=True, help="Enable KID evaluation on save_every.")
+    ap.add_argument(
+        "--fid", type=_parse_bool, default=True, help="Enable FID evaluation on save_every."
+    )
+    ap.add_argument(
+        "--kid", type=_parse_bool, default=True, help="Enable KID evaluation on save_every."
+    )
     ap.add_argument("--max_grad_norm", type=float, default=1.0)
-    ap.add_argument("--ckpt", default=None, help="Path to .pt weights or full-state checkpoint directory for training resume.")
+    ap.add_argument(
+        "--ckpt",
+        default=None,
+        help="Path to .pt weights or full-state checkpoint directory for training resume.",
+    )
     ap.add_argument("--sample_every", type=int, default=1000)
     ap.add_argument(
         "--db",
@@ -972,7 +1037,9 @@ def parse_args(input_args=None):
         ),
     )
     ap.add_argument("--clip_model", type=str, default="openai/clip-vit-base-patch32")
-    ap.add_argument("--nn_clip_model", dest="clip_model", type=str, default=None, help=argparse.SUPPRESS)
+    ap.add_argument(
+        "--nn_clip_model", dest="clip_model", type=str, default=None, help=argparse.SUPPRESS
+    )
     ap.add_argument(
         "--nn_clip_local_files_only",
         action="store_true",
@@ -996,7 +1063,9 @@ def parse_args(input_args=None):
     ap.add_argument("--drifting_tau", type=float, default=0.1)
     ap.add_argument("--drifting_warmup", type=int, default=5000)
     ap.add_argument("--loss_weight", choices=["none", "cos", "inv_1_minus_t2"], default="none")
-    ap.add_argument("--self_mask_db", action="store_true", help="Mask DB self-match during training.")
+    ap.add_argument(
+        "--self_mask_db", action="store_true", help="Mask DB self-match during training."
+    )
 
     # Accelerate
     ap.add_argument("--allow_tf32", action="store_true")
@@ -1015,7 +1084,11 @@ def parse_args(input_args=None):
     ap.add_argument("--wandb_project", default="pairflow-learned-vae")
     ap.add_argument("--wandb_entity", default=None)
     ap.add_argument("--wandb_name", default=None)
-    ap.add_argument("--wandb_run_id", default=None, help="Explicit Weights & Biases run id for resume/continuation.")
+    ap.add_argument(
+        "--wandb_run_id",
+        default=None,
+        help="Explicit Weights & Biases run id for resume/continuation.",
+    )
     ap.add_argument(
         "--wandb_resume",
         type=str,

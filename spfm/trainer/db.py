@@ -10,7 +10,6 @@ from accelerate import Accelerator
 from accelerate.logging import get_logger
 from datasets import load_dataset
 from torch.utils.data import DataLoader, TensorDataset
-
 from utils.train_helpers import (
     _apply_label_filter,
     _apply_label_split,
@@ -29,6 +28,7 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 # Artifact Containers
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class PrimaryDBArtifacts:
@@ -50,6 +50,7 @@ class AltDBArtifacts:
 # ---------------------------------------------------------------------------
 # Training Loader
 # ---------------------------------------------------------------------------
+
 
 def build_train_latent_loader(
     *,
@@ -89,6 +90,7 @@ def build_train_latent_loader(
 # DB Spec Helpers
 # ---------------------------------------------------------------------------
 
+
 def _normalize_db_spec(spec: str | None) -> str | None:
     if spec is None:
         return None
@@ -106,7 +108,9 @@ def _parse_labels_from_db_spec(db_spec: str) -> str:
         elif "=" in entry:
             label = entry.split("=", 1)[0].strip()
         else:
-            raise ValueError(f"Invalid db spec entry '{entry}', expected label:fraction or label=count")
+            raise ValueError(
+                f"Invalid db spec entry '{entry}', expected label:fraction or label=count"
+            )
         if not label:
             raise ValueError(f"Invalid db spec entry '{entry}', empty label")
         labels.append(label)
@@ -171,6 +175,7 @@ def build_db_group_ids_from_indices(
 # Primary Database
 # ---------------------------------------------------------------------------
 
+
 def _compute_primary_db_flags(args) -> tuple[bool, bool]:
     need_group_ids = False
     use_db_indices = bool(args.self_mask_db)
@@ -212,8 +217,12 @@ def build_primary_db(
             label_split_complement=label_split_complement,
         )
         if accelerator.is_main_process:
-            counts_msg = ", ".join(f"{k}:{v}" for k, v in sorted(db_counts.items())) if db_counts else "n/a"
-            logger.info("[db] using full filtered dataset: N_img=%d labels={%s}", args.N_img, counts_msg)
+            counts_msg = (
+                ", ".join(f"{k}:{v}" for k, v in sorted(db_counts.items())) if db_counts else "n/a"
+            )
+            logger.info(
+                "[db] using full filtered dataset: N_img=%d labels={%s}", args.N_img, counts_msg
+            )
 
     loader = make_loader(
         args.dataset,
@@ -295,6 +304,7 @@ def build_primary_db(
 # Alternate Database
 # ---------------------------------------------------------------------------
 
+
 def build_alt_db(
     args,
     vae,
@@ -344,7 +354,9 @@ def build_alt_db(
         label_split_complement=label_split_complement,
     )
     if accelerator.is_main_process:
-        counts_msg = ", ".join(f"{k}:{v}" for k, v in sorted(alt_counts.items())) if alt_counts else "n/a"
+        counts_msg = (
+            ", ".join(f"{k}:{v}" for k, v in sorted(alt_counts.items())) if alt_counts else "n/a"
+        )
         logger.info("[alt_db] using %s: N_img=%d labels={%s}", log_mode, alt_n_img, counts_msg)
 
     alt_need_group_ids = False

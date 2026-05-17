@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import math
 import os
 import sys
 from pathlib import Path
@@ -38,7 +37,6 @@ from utils.train_helpers import (
     vae_tag_from_name,
 )
 
-
 LOGGER = logging.getLogger("spfm_nn_triplet_eval")
 NN_SEARCH_CHUNK = 1024
 
@@ -53,19 +51,32 @@ def parse_args() -> argparse.Namespace:
     )
     ap.add_argument("--config", default="experiments/spfm.yaml")
     ap.add_argument("--ckpt", default="out/spfm_afhq_cat_dog/model_step10000.pt")
-    ap.add_argument("--results_dir", default="out/evals/spfm_afhq_cat_dog_step10000/nn_triplet_steer")
+    ap.add_argument(
+        "--results_dir", default="out/evals/spfm_afhq_cat_dog_step10000/nn_triplet_steer"
+    )
     ap.add_argument("--num_gen", type=int, default=8)
     ap.add_argument("--sample_steps", type=int, default=None)
     ap.add_argument("--decode_batch", type=int, default=None)
     ap.add_argument("--seed", type=int, default=1234)
     ap.add_argument("--use_ema", type=_parse_bool, default=False)
     ap.add_argument("--steer_strength", type=float, default=1.0)
-    ap.add_argument("--beta_schedule", choices=["constant", "bell", "quadratic-decay"], default="quadratic-decay")
+    ap.add_argument(
+        "--beta_schedule",
+        choices=["constant", "bell", "quadratic-decay"],
+        default="quadratic-decay",
+    )
     ap.add_argument("--steer_start_frac", type=float, default=0.15)
     ap.add_argument("--steer_end_frac", type=float, default=0.95)
     ap.add_argument("--steer_topk", type=int, default=0, help="0 means use the full steering bank.")
-    ap.add_argument("--class_subset_size", type=int, default=0, help="Use this many selected examples for cats_only/dogs_only and steering banks. 0 uses the full class DBs.")
-    ap.add_argument("--class_subset_mode", choices=["random", "white_background"], default="white_background")
+    ap.add_argument(
+        "--class_subset_size",
+        type=int,
+        default=0,
+        help="Use this many selected examples for cats_only/dogs_only and steering banks. 0 uses the full class DBs.",
+    )
+    ap.add_argument(
+        "--class_subset_mode", choices=["random", "white_background"], default="white_background"
+    )
     ap.add_argument("--patch_rows", type=int, default=None)
     ap.add_argument("--patch_cols", type=int, default=None)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
@@ -86,7 +97,9 @@ def _setup_logging(results_dir: str) -> None:
     )
 
 
-def _load_args(config_path: str, ckpt: str | None, sample_steps: int | None, decode_batch: int | None):
+def _load_args(
+    config_path: str, ckpt: str | None, sample_steps: int | None, decode_batch: int | None
+):
     ckpt_args_path = None
     if ckpt is not None:
         ckpt_path = Path(ckpt).expanduser()
@@ -134,7 +147,9 @@ def _resolve_ckpt_path(ckpt: str, train_out_dir: str) -> str:
     return eval_checkpoint._resolve_model_weights_path(str(ckpt_path), train_out_dir)
 
 
-def _build_db_artifacts(base_args, *, db_spec: str, vae, device: torch.device, return_indices: bool = False):
+def _build_db_artifacts(
+    base_args, *, db_spec: str, vae, device: torch.device, return_indices: bool = False
+):
     variant_args = argparse.Namespace(**vars(base_args))
     variant_args.db = db_spec
     variant_args.alt_db = "none"
@@ -154,7 +169,9 @@ def _build_db_artifacts(base_args, *, db_spec: str, vae, device: torch.device, r
 
 
 def _build_db_variant(base_args, *, db_spec: str, vae, device: torch.device):
-    primary = _build_db_artifacts(base_args, db_spec=db_spec, vae=vae, device=device, return_indices=False)
+    primary = _build_db_artifacts(
+        base_args, db_spec=db_spec, vae=vae, device=device, return_indices=False
+    )
     return primary.Xdb
 
 
@@ -213,7 +230,9 @@ def _select_class_subset(
     if subset_size <= 0:
         return db, {"subset_size": int(db.shape[0]), "subset_mode": "full"}
     if int(db.shape[0]) < subset_size:
-        raise ValueError(f"{tag}: requested {subset_size} examples but DB has only {int(db.shape[0])}")
+        raise ValueError(
+            f"{tag}: requested {subset_size} examples but DB has only {int(db.shape[0])}"
+        )
 
     label_value = _label_value_from_db_spec(db_spec)
     ds = load_dataset(args.dataset, split=args.split, streaming=False)
@@ -239,7 +258,9 @@ def _select_class_subset(
         scores = [None for _ in selected_ds_indices]
         selected_imgs = []
     else:
-        tf = TVT.Compose([TVT.Resize(args.image_size), TVT.CenterCrop(args.image_size), TVT.ToTensor()])
+        tf = TVT.Compose(
+            [TVT.Resize(args.image_size), TVT.CenterCrop(args.image_size), TVT.ToTensor()]
+        )
         scored: list[tuple[float, int, torch.Tensor]] = []
         for ds_idx in candidate_indices:
             ex = ds[int(ds_idx)]
@@ -324,7 +345,9 @@ def _split_spatial_patches(x: torch.Tensor, patch_rows: int, patch_cols: int) ->
         raise ValueError("Expected latent tensor with shape [B, C, H, W].")
     batch, channels, height, width = x.shape
     if height % patch_rows != 0 or width % patch_cols != 0:
-        raise ValueError(f"Latent shape {(height, width)} not divisible by patch grid {(patch_rows, patch_cols)}.")
+        raise ValueError(
+            f"Latent shape {(height, width)} not divisible by patch grid {(patch_rows, patch_cols)}."
+        )
     patch_h = height // patch_rows
     patch_w = width // patch_cols
     x = x.view(batch, channels, patch_rows, patch_h, patch_cols, patch_w)
@@ -349,7 +372,9 @@ def _schedule_beta(steer_strength: float, beta_schedule: str, t: float) -> float
     return steer_strength
 
 
-def _in_steering_window(step_index: int, total_steps: int, start_frac: float, end_frac: float) -> bool:
+def _in_steering_window(
+    step_index: int, total_steps: int, start_frac: float, end_frac: float
+) -> bool:
     frac = float(step_index) / float(max(total_steps - 1, 1))
     return start_frac <= frac <= end_frac
 
@@ -393,12 +418,16 @@ def _patchwise_retrieval_update(
 
     mu_patch = mu_patch.view(batch, num_patches, channels, patch_h, patch_w)
     mu_latents = _merge_spatial_patches(mu_patch, patch_rows, patch_cols).to(current_latents.dtype)
-    v_star = ((mu_latents.float() - current_latents.float()) / max(1.0 - t, 1e-4)).to(current_latents.dtype)
+    v_star = ((mu_latents.float() - current_latents.float()) / max(1.0 - t, 1e-4)).to(
+        current_latents.dtype
+    )
 
     entropy = -(weights * torch.log(weights.clamp_min(1e-12))).sum(dim=-1)
     stats = {
         "mu_star_norm": float(mu_latents.float().reshape(batch, -1).norm(dim=-1).mean().item()),
-        "current_norm": float(current_latents.float().reshape(batch, -1).norm(dim=-1).mean().item()),
+        "current_norm": float(
+            current_latents.float().reshape(batch, -1).norm(dim=-1).mean().item()
+        ),
         "v_star_norm": float(v_star.float().reshape(batch, -1).norm(dim=-1).mean().item()),
         "posterior_entropy": float(entropy.mean().item()),
         "top1_weight": float(weights.max(dim=-1).values.mean().item()),
@@ -467,14 +496,17 @@ def _sample_from_initial_latents_with_steering(
     return imgs, x, history
 
 
-def _make_initial_latents(args, *, device: torch.device, base_seed: int) -> tuple[torch.Tensor, list[int]]:
+def _make_initial_latents(
+    args, *, device: torch.device, base_seed: int
+) -> tuple[torch.Tensor, list[int]]:
     seeds = [int(base_seed) + i for i in range(int(args.num_gen))]
     latents = []
     for seed in seeds:
         gen = torch.Generator(device=device)
         gen.manual_seed(seed)
         latents.append(
-            float(args.noise_scale) * torch.randn(
+            float(args.noise_scale)
+            * torch.randn(
                 1,
                 int(args.latent_c),
                 int(args.latent_h),
@@ -592,7 +624,9 @@ def _write_variant_outputs(
     nn_grid = make_grid(nn_imgs.detach().cpu(), nrow=int(args.num_gen))
     save_image(sample_grid, os.path.join(variant_dir, "generated_grid.png"))
     save_image(nn_grid, os.path.join(variant_dir, "nearest_neighbors_grid.png"))
-    paired_grid = make_grid(torch.cat([imgs.detach().cpu(), nn_imgs.detach().cpu()], dim=0), nrow=int(args.num_gen))
+    paired_grid = make_grid(
+        torch.cat([imgs.detach().cpu(), nn_imgs.detach().cpu()], dim=0), nrow=int(args.num_gen)
+    )
     save_image(paired_grid, os.path.join(variant_dir, "generated_vs_nn_grid.png"))
 
     metrics = {
@@ -711,7 +745,9 @@ def main() -> int:
 
     vae = load_invae(args.vae_name, device=device)
     vae.eval().requires_grad_(False)
-    latent_c, latent_h, latent_w, latent_downsample = infer_vae_latent_spec(vae, args.image_size, device)
+    latent_c, latent_h, latent_w, latent_downsample = infer_vae_latent_spec(
+        vae, args.image_size, device
+    )
     args.latent_c = latent_c
     args.latent_h = latent_h
     args.latent_w = latent_w
@@ -726,7 +762,9 @@ def main() -> int:
     eval_checkpoint._load_model_weights(model, ckpt_path, use_ema=bool(ns.use_ema))
     raw_model = train._unwrap_model_for_runtime(model)
     raw_model.eval()
-    initial_latents, sample_seeds = _make_initial_latents(args, device=device, base_seed=int(ns.seed))
+    initial_latents, sample_seeds = _make_initial_latents(
+        args, device=device, base_seed=int(ns.seed)
+    )
     torch.save(
         {"sample_seeds": sample_seeds, "initial_latents": initial_latents.detach().cpu()},
         os.path.join(results_dir, "initial_latents.pt"),
@@ -775,8 +813,14 @@ def main() -> int:
     )
     cats_db = cats_artifacts.Xdb
     dogs_db = dogs_artifacts.Xdb
-    cats_subset_meta: dict[str, object] = {"subset_size": int(cats_db.shape[0]), "subset_mode": "full"}
-    dogs_subset_meta: dict[str, object] = {"subset_size": int(dogs_db.shape[0]), "subset_mode": "full"}
+    cats_subset_meta: dict[str, object] = {
+        "subset_size": int(cats_db.shape[0]),
+        "subset_mode": "full",
+    }
+    dogs_subset_meta: dict[str, object] = {
+        "subset_size": int(dogs_db.shape[0]),
+        "subset_mode": "full",
+    }
     if need_class_indices:
         cats_db, cats_subset_meta = _select_class_subset(
             args=args,

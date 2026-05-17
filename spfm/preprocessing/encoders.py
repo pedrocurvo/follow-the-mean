@@ -8,10 +8,11 @@
 """Converting between pixel and latent representations of image data."""
 
 import os
-from pathlib import Path
 import warnings
-import numpy as np
+from pathlib import Path
+
 import torch
+
 
 # Local fallback for persistence decorator (no-op).
 class _Persistence:
@@ -19,13 +20,14 @@ class _Persistence:
     def persistent_class(cls):
         return cls
 
+
 persistence = _Persistence()
 
 
-warnings.filterwarnings('ignore', 'torch.utils._pytree._register_pytree_node is deprecated.')
-warnings.filterwarnings('ignore', '`resume_download` is deprecated')
+warnings.filterwarnings("ignore", "torch.utils._pytree._register_pytree_node is deprecated.")
+warnings.filterwarnings("ignore", "`resume_download` is deprecated")
 
-#----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 # Abstract base class for encoders/decoders that convert back and forth
 # between pixel and latent representations of image data.
 #
@@ -40,34 +42,39 @@ warnings.filterwarnings('ignore', '`resume_download` is deprecated')
 # All image data is represented as PyTorch tensors in NCHW order.
 # Raw pixels are represented as 3-channel uint8.
 
+
 @persistence.persistent_class
 class Encoder:
     def __init__(self):
         pass
 
-    def init(self, device): # force lazy init to happen now
+    def init(self, device):  # force lazy init to happen now
         pass
 
     def __getstate__(self):
         return self.__dict__
 
-    def encode_pixels(self, x): # raw pixels => raw latents
-        raise NotImplementedError # to be overridden by subclass
-#----------------------------------------------------------------------------
+    def encode_pixels(self, x):  # raw pixels => raw latents
+        raise NotImplementedError  # to be overridden by subclass
+
+
+# ----------------------------------------------------------------------------
 # Pre-trained InVAE encoder.
+
 
 @persistence.persistent_class
 class InvaeEncoder(Encoder):
-    def __init__(self,
-        vae_name    = 'REPA-E/e2e-invae',  # Name of the VAE to use.
-        batch_size  = 8,                    # Batch size to use when running the VAE.
+    def __init__(
+        self,
+        vae_name="REPA-E/e2e-invae",  # Name of the VAE to use.
+        batch_size=8,  # Batch size to use when running the VAE.
     ):
         super().__init__()
         self.vae_name = vae_name
         self.batch_size = int(batch_size)
         self._vae = None
 
-    def init(self, device): # force lazy init to happen now
+    def init(self, device):  # force lazy init to happen now
         super().init(device)
         if self._vae is None:
             self._vae = load_invae(self.vae_name, device=device)
@@ -75,21 +82,23 @@ class InvaeEncoder(Encoder):
             self._vae.to(device)
 
     def __getstate__(self):
-        return dict(super().__getstate__(), _vae=None) # do not pickle the vae
+        return dict(super().__getstate__(), _vae=None)  # do not pickle the vae
 
     def _run_vae_encoder(self, x):
         # invae.encode() now returns sampled latents directly
         return self._vae.encode(x).sample()
 
-    def encode(self, x): # raw pixels => raw latents
+    def encode(self, x):  # raw pixels => raw latents
         self.init(x.device)
         x = x.to(torch.float32) / 127.5 - 1
         x = torch.cat([self._run_vae_encoder(batch) for batch in x.split(self.batch_size)])
         return x
 
-#----------------------------------------------------------------------------
 
-def load_invae(vae_name="REPA-E/e2e-invae", device=torch.device('cpu')):
+# ----------------------------------------------------------------------------
+
+
+def load_invae(vae_name="REPA-E/e2e-invae", device=torch.device("cpu")):
     if vae_name.startswith("stabilityai/") or "sd-vae" in vae_name:
         try:
             from diffusers import AutoencoderKL
@@ -101,7 +110,8 @@ def load_invae(vae_name="REPA-E/e2e-invae", device=torch.device('cpu')):
         vae = AutoencoderKL.from_pretrained(vae_name)
         return vae.eval().requires_grad_(False).to(device)
 
-    import os, sys
+    import sys
+
     try:
         # If encoders.py is imported as part of a package (e.g., REG.preprocessing.encoders)
         from ..models.invae import VAE_F16D32
@@ -127,6 +137,7 @@ def load_invae(vae_name="REPA-E/e2e-invae", device=torch.device('cpu')):
     vae_path = cache_dir / "e2e-invae-400k.pt"
     if not os.path.exists(vae_path):
         import requests
+
         url = "https://huggingface.co/REPA-E/e2e-invae/resolve/main/e2e-invae-400k.pt"
         r = requests.get(url, timeout=120)
         r.raise_for_status()
@@ -138,4 +149,5 @@ def load_invae(vae_name="REPA-E/e2e-invae", device=torch.device('cpu')):
     vae.load_state_dict(torch.load(str(vae_path), map_location=device))
     return vae.eval().requires_grad_(False).to(device)
 
-#----------------------------------------------------------------------------
+
+# ----------------------------------------------------------------------------

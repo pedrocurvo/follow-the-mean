@@ -14,12 +14,12 @@ import json
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-
 import parser as cli_parser
 
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def parse_args() -> argparse.Namespace:
     parser = cli_parser.argument_parser("Plot savanna-object controllability metrics")
@@ -43,9 +43,11 @@ def parse_args() -> argparse.Namespace:
     )
     return parser.parse_args()
 
+
 # ---------------------------------------------------------------------------
 # Data Loading
 # ---------------------------------------------------------------------------
+
 
 def load_json(path: Path) -> dict:
     with open(path, "r", encoding="utf-8") as f:
@@ -55,9 +57,11 @@ def load_json(path: Path) -> dict:
 def mix_to_fraction(mix_slug: str) -> float:
     return int(mix_slug.split("_")[1]) / 100.0
 
+
 # ---------------------------------------------------------------------------
 # Plotting
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     args = parse_args()
@@ -98,8 +102,24 @@ def main() -> None:
     }
 
     plt.figure(figsize=(9.4, 6.4))
-    plt.plot(x, vlm_giraffe_rate, marker="o", linewidth=3.8, markersize=16, color=colors["vlm"], label="VLM")
-    plt.plot(x, clip_giraffe_rate, marker="s", linewidth=3.8, markersize=16, color=colors["clip_cls"], label="CLIP")
+    plt.plot(
+        x,
+        vlm_giraffe_rate,
+        marker="o",
+        linewidth=3.8,
+        markersize=16,
+        color=colors["vlm"],
+        label="VLM",
+    )
+    plt.plot(
+        x,
+        clip_giraffe_rate,
+        marker="s",
+        linewidth=3.8,
+        markersize=16,
+        color=colors["clip_cls"],
+        label="CLIP",
+    )
     plt.xlabel("Reference composition\n(% target attribute)", fontsize=30)
     plt.ylabel("Output composition\n(% target attribute)", fontsize=30)
     plt.xticks(x, [f"{int(v)}" for v in x], fontsize=25)
@@ -121,8 +141,24 @@ def main() -> None:
     plt.close()
 
     plt.figure(figsize=(9.4, 6.4))
-    plt.plot(x, clip_zebra_score, marker="o", linewidth=3.8, markersize=16, color=colors["zebra"], label="Zebra")
-    plt.plot(x, clip_giraffe_score, marker="s", linewidth=3.8, markersize=16, color=colors["giraffe"], label="Giraffe")
+    plt.plot(
+        x,
+        clip_zebra_score,
+        marker="o",
+        linewidth=3.8,
+        markersize=16,
+        color=colors["zebra"],
+        label="Zebra",
+    )
+    plt.plot(
+        x,
+        clip_giraffe_score,
+        marker="s",
+        linewidth=3.8,
+        markersize=16,
+        color=colors["giraffe"],
+        label="Giraffe",
+    )
     plt.xlabel("Reference composition\n(% target attribute)", fontsize=30)
     plt.ylabel("Mean CLIP similarity\n(target attribute)", fontsize=30)
     plt.xticks(x, [f"{int(v)}" for v in x], fontsize=25)

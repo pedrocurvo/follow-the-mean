@@ -1,0 +1,26 @@
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = [
+  "rgm/references",
+  "rgm/runs",
+  "spfm/out",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = [
+  # Existing experiment scripts use long plotting calls and compact
+  # one-line statements. Keep lint focused on correctness first.
+  "E501",
+  "E701",
+  "E702",
+  # Several executable helpers intentionally adjust sys.path before importing
+  # local modules.
+  "E402",
+  # Existing model/util code uses small local lambdas and legacy external code
+  # patterns that are not worth churning for this lint baseline.
+  "E731",
+  "E722",
+  "E741",
+]

@@ -9,7 +9,6 @@ from pathlib import Path
 
 import yaml
 
-
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -39,6 +38,7 @@ LAUNCH_ONLY_KEYS = {
 # ---------------------------------------------------------------------------
 # Config Flattening
 # ---------------------------------------------------------------------------
+
 
 def _to_cli_args(cfg: dict) -> list[str]:
     args: list[str] = []
@@ -126,6 +126,7 @@ def _merge_train_cfg(train_cfg: dict) -> dict:
 # Launch Config
 # ---------------------------------------------------------------------------
 
+
 def _parse_bool_like(value) -> bool:
     if isinstance(value, bool):
         return value
@@ -143,8 +144,12 @@ def _extract_launch_cfg(flat_cfg: dict) -> tuple[dict, dict]:
     launch_cfg = {
         "enabled": multi_gpu,
         "num_processes": num_processes,
-        "num_machines": int(launch["accelerate_num_machines"]) if "accelerate_num_machines" in launch else None,
-        "machine_rank": int(launch["accelerate_machine_rank"]) if "accelerate_machine_rank" in launch else None,
+        "num_machines": int(launch["accelerate_num_machines"])
+        if "accelerate_num_machines" in launch
+        else None,
+        "machine_rank": int(launch["accelerate_machine_rank"])
+        if "accelerate_machine_rank" in launch
+        else None,
         "main_process_port": (
             int(launch["accelerate_main_process_port"])
             if "accelerate_main_process_port" in launch
@@ -157,6 +162,7 @@ def _extract_launch_cfg(flat_cfg: dict) -> tuple[dict, dict]:
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Run train.py from an experiments YAML config.")

@@ -26,8 +26,13 @@ import train
 from preprocessing.encoders import load_invae
 from trainer.db import build_primary_db
 from trainer.model_factory import build_model
-from utils.train_helpers import decode_latents, ensure_dir, get_vae_scaling, infer_vae_latent_spec, vae_tag_from_name
-
+from utils.train_helpers import (
+    decode_latents,
+    ensure_dir,
+    get_vae_scaling,
+    infer_vae_latent_spec,
+    vae_tag_from_name,
+)
 
 LOGGER = logging.getLogger("afhq_fixed_seed_comparison")
 
@@ -69,7 +74,11 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--cats", type=int, default=50)
     ap.add_argument("--dogs", type=int, default=50)
     ap.add_argument("--steer-strength", type=float, default=1.0)
-    ap.add_argument("--beta-schedule", choices=["constant", "bell", "quadratic-decay"], default="quadratic-decay")
+    ap.add_argument(
+        "--beta-schedule",
+        choices=["constant", "bell", "quadratic-decay"],
+        default="quadratic-decay",
+    )
     ap.add_argument("--steer-start-frac", type=float, default=0.15)
     ap.add_argument("--steer-end-frac", type=float, default=0.95)
     ap.add_argument("--steer-topk", type=int, default=0, help="0 means use the full bank.")
@@ -183,7 +192,9 @@ def _load_runtime(
     vae = load_invae(args.vae_name, device=device)
     vae.eval().requires_grad_(False)
 
-    latent_c, latent_h, latent_w, latent_downsample = infer_vae_latent_spec(vae, args.image_size, device)
+    latent_c, latent_h, latent_w, latent_downsample = infer_vae_latent_spec(
+        vae, args.image_size, device
+    )
     args.latent_c = latent_c
     args.latent_h = latent_h
     args.latent_w = latent_w
@@ -232,7 +243,9 @@ def _build_db(
     args.db_dir = _db_cache_dir(output_root, db_spec)
     args.alt_db = "none"
     args.self_mask_db = True
-    primary = build_primary_db(args, vae=runtime.vae, device=device, accelerator=_SingleProcessAccel())
+    primary = build_primary_db(
+        args, vae=runtime.vae, device=device, accelerator=_SingleProcessAccel()
+    )
     indices = None
     if primary.db_indices is not None:
         indices = [int(x) for x in primary.db_indices.detach().cpu().tolist()]
@@ -270,7 +283,9 @@ def _split_spatial_patches(x: torch.Tensor, patch_rows: int, patch_cols: int) ->
         raise ValueError("Expected latent tensor with shape [B, C, H, W].")
     batch, channels, height, width = x.shape
     if height % patch_rows != 0 or width % patch_cols != 0:
-        raise ValueError(f"Latent shape {(height, width)} not divisible by patch grid {(patch_rows, patch_cols)}.")
+        raise ValueError(
+            f"Latent shape {(height, width)} not divisible by patch grid {(patch_rows, patch_cols)}."
+        )
     patch_h = height // patch_rows
     patch_w = width // patch_cols
     x = x.view(batch, channels, patch_rows, patch_h, patch_cols, patch_w)
@@ -295,7 +310,9 @@ def _schedule_beta(steer_strength: float, beta_schedule: str, t: float) -> float
     return steer_strength
 
 
-def _in_steering_window(step_index: int, total_steps: int, start_frac: float, end_frac: float) -> bool:
+def _in_steering_window(
+    step_index: int, total_steps: int, start_frac: float, end_frac: float
+) -> bool:
     frac = float(step_index) / float(max(total_steps - 1, 1))
     return start_frac <= frac <= end_frac
 
@@ -339,12 +356,16 @@ def _patchwise_spfm_update(
 
     mu_patch = mu_patch.view(batch, num_patches, channels, patch_h, patch_w)
     mu_latents = _merge_spatial_patches(mu_patch, patch_rows, patch_cols).to(current_latents.dtype)
-    v_star = ((mu_latents.float() - current_latents.float()) / max(1.0 - t, 1e-4)).to(current_latents.dtype)
+    v_star = ((mu_latents.float() - current_latents.float()) / max(1.0 - t, 1e-4)).to(
+        current_latents.dtype
+    )
 
     entropy = -(weights * torch.log(weights.clamp_min(1e-12))).sum(dim=-1)
     stats = {
         "mu_star_norm": float(mu_latents.float().reshape(batch, -1).norm(dim=-1).mean().item()),
-        "current_norm": float(current_latents.float().reshape(batch, -1).norm(dim=-1).mean().item()),
+        "current_norm": float(
+            current_latents.float().reshape(batch, -1).norm(dim=-1).mean().item()
+        ),
         "v_star_norm": float(v_star.float().reshape(batch, -1).norm(dim=-1).mean().item()),
         "posterior_entropy": float(entropy.mean().item()),
         "top1_weight": float(weights.max(dim=-1).values.mean().item()),
@@ -370,7 +391,9 @@ def _sample_dit_with_spfm_steering(
     model = dit_runtime.model
     x = initial_latent.clone()
     dummy_db = bank_latents[:1]
-    ts = torch.linspace(float(args.t_eps), 1.0 - float(args.t_eps), int(args.sample_steps) + 1, device=x.device)
+    ts = torch.linspace(
+        float(args.t_eps), 1.0 - float(args.t_eps), int(args.sample_steps) + 1, device=x.device
+    )
     history: list[dict[str, float]] = []
 
     for step_idx in range(int(args.sample_steps)):
@@ -425,7 +448,9 @@ def _sample_model_with_spfm_steering(
     args = runtime.args
     model = runtime.model
     x = initial_latent.clone()
-    ts = torch.linspace(float(args.t_eps), 1.0 - float(args.t_eps), int(args.sample_steps) + 1, device=x.device)
+    ts = torch.linspace(
+        float(args.t_eps), 1.0 - float(args.t_eps), int(args.sample_steps) + 1, device=x.device
+    )
     history: list[dict[str, float]] = []
 
     for step_idx in range(int(args.sample_steps)):
@@ -467,7 +492,9 @@ def _save_single_image(imgs: torch.Tensor, path: str) -> None:
     save_image(imgs[0].detach().cpu(), path)
 
 
-def _save_bank_preview(bank_latents: torch.Tensor, vae, decode_batch: int, out_path: str, limit: int = 16) -> None:
+def _save_bank_preview(
+    bank_latents: torch.Tensor, vae, decode_batch: int, out_path: str, limit: int = 16
+) -> None:
     preview = bank_latents[: min(limit, int(bank_latents.shape[0]))]
     if preview.numel() == 0:
         return
@@ -511,8 +538,12 @@ def main() -> int:
     ):
         raise ValueError("DiT and SPFM runtimes do not share the same latent shape.")
 
-    patch_rows = int(ns.patch_rows or (dit_runtime.args.latent_h // dit_runtime.args.cross_patch_size))
-    patch_cols = int(ns.patch_cols or (dit_runtime.args.latent_w // dit_runtime.args.cross_patch_size))
+    patch_rows = int(
+        ns.patch_rows or (dit_runtime.args.latent_h // dit_runtime.args.cross_patch_size)
+    )
+    patch_cols = int(
+        ns.patch_cols or (dit_runtime.args.latent_w // dit_runtime.args.cross_patch_size)
+    )
 
     cat_major = int(round(0.75 * int(ns.cats)))
     cat_minor = int(ns.cats) - cat_major
@@ -526,7 +557,9 @@ def main() -> int:
     mixed_spec = f"dog={mixed_dogs},cat={mixed_cats}"
     cat_bank, cat_indices = _build_db(spfm_runtime, cat_spec, device, output_root=ns.output_root)
     dog_bank, dog_indices = _build_db(spfm_runtime, dog_spec, device, output_root=ns.output_root)
-    mixed_bank, mixed_indices = _build_db(spfm_runtime, mixed_spec, device, output_root=ns.output_root)
+    mixed_bank, mixed_indices = _build_db(
+        spfm_runtime, mixed_spec, device, output_root=ns.output_root
+    )
     LOGGER.info("cat bank shape=%s spec=%s", tuple(cat_bank.shape), cat_spec)
     LOGGER.info("dog bank shape=%s spec=%s", tuple(dog_bank.shape), dog_spec)
     LOGGER.info("mixed bank shape=%s spec=%s", tuple(mixed_bank.shape), mixed_spec)
@@ -703,9 +736,15 @@ def main() -> int:
             "dit": float(dit_latent.float().reshape(1, -1).norm(dim=-1).item()),
             f"spfm_{cat_tag}": float(spfm_cat_latent.float().reshape(1, -1).norm(dim=-1).item()),
             f"spfm_{dog_tag}": float(spfm_dog_latent.float().reshape(1, -1).norm(dim=-1).item()),
-            f"dit_plus_steer_{cat_tag}": float(steer_cat_latent.float().reshape(1, -1).norm(dim=-1).item()),
-            f"dit_plus_steer_{dog_tag}": float(steer_dog_latent.float().reshape(1, -1).norm(dim=-1).item()),
-            f"spfm_{mixed_tag}": float(spfm_mixed_latent.float().reshape(1, -1).norm(dim=-1).item()),
+            f"dit_plus_steer_{cat_tag}": float(
+                steer_cat_latent.float().reshape(1, -1).norm(dim=-1).item()
+            ),
+            f"dit_plus_steer_{dog_tag}": float(
+                steer_dog_latent.float().reshape(1, -1).norm(dim=-1).item()
+            ),
+            f"spfm_{mixed_tag}": float(
+                spfm_mixed_latent.float().reshape(1, -1).norm(dim=-1).item()
+            ),
             f"spfm_{mixed_tag}_plus_steer_{dog_tag}": float(
                 mixed_plus_steer_dog_latent.float().reshape(1, -1).norm(dim=-1).item()
             ),
@@ -720,9 +759,13 @@ def main() -> int:
         json.dump(steer_cat_history, f, indent=2)
     with open(os.path.join(ns.output_root, "steer_dog_history.json"), "w", encoding="utf-8") as f:
         json.dump(steer_dog_history, f, indent=2)
-    with open(os.path.join(ns.output_root, "mixed_plus_steer_dog_history.json"), "w", encoding="utf-8") as f:
+    with open(
+        os.path.join(ns.output_root, "mixed_plus_steer_dog_history.json"), "w", encoding="utf-8"
+    ) as f:
         json.dump(mixed_plus_steer_dog_history, f, indent=2)
-    with open(os.path.join(ns.output_root, "mixed_plus_steer_cat_history.json"), "w", encoding="utf-8") as f:
+    with open(
+        os.path.join(ns.output_root, "mixed_plus_steer_cat_history.json"), "w", encoding="utf-8"
+    ) as f:
         json.dump(mixed_plus_steer_cat_history, f, indent=2)
 
     LOGGER.info("saved outputs under %s", Path(ns.output_root).resolve())

@@ -8,7 +8,6 @@ from typing import Any
 import torch
 from accelerate import Accelerator
 from torchvision.utils import make_grid, save_image
-
 from utils.train_helpers import decode_latents, ensure_dir, nearest_neighbors, sample_closedform
 
 # ---------------------------------------------------------------------------
@@ -22,6 +21,7 @@ NN_SEARCH_CHUNK = 1024
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _grid_nrow(num_gen: int) -> int:
     return max(1, int(math.sqrt(max(1, int(num_gen)))))
 
@@ -29,6 +29,7 @@ def _grid_nrow(num_gen: int) -> int:
 # ---------------------------------------------------------------------------
 # Artifact Containers
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class QuickSampleArtifacts:
@@ -45,6 +46,7 @@ class QuickSampleArtifacts:
 # ---------------------------------------------------------------------------
 # Quick Sampling
 # ---------------------------------------------------------------------------
+
 
 @torch.no_grad()
 def run_quick_sample_nn(
@@ -136,6 +138,7 @@ def run_quick_sample_nn(
 # Logging
 # ---------------------------------------------------------------------------
 
+
 def log_quick_sample(
     *,
     accelerator: Accelerator,
@@ -150,7 +153,9 @@ def log_quick_sample(
     if wandb_module is not None and "wandb" in str(report_to):
         log_payload = {
             "train/sample_grid": wandb_module.Image(sample_artifacts.main_grid.clamp(0, 1).cpu()),
-            "train/sample_nn_grid": wandb_module.Image(sample_artifacts.main_nn_grid.clamp(0, 1).cpu()),
+            "train/sample_nn_grid": wandb_module.Image(
+                sample_artifacts.main_nn_grid.clamp(0, 1).cpu()
+            ),
             "train/step": step_now,
         }
         if sample_artifacts.alt_grid is not None and sample_artifacts.alt_nn_grid is not None:

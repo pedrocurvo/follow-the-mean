@@ -1,5 +1,11 @@
 from trainer.clip_eval import ClipEvalRuntime, clip_eval, load_clip_runtime, prompt_metric_suffix
-from trainer.db import AltDBArtifacts, PrimaryDBArtifacts, build_alt_db, build_db_group_ids_from_indices, build_primary_db
+from trainer.db import (
+    AltDBArtifacts,
+    PrimaryDBArtifacts,
+    build_alt_db,
+    build_db_group_ids_from_indices,
+    build_primary_db,
+)
 from trainer.loss import (
     compute_main_loss,
     compute_refiner_loss,

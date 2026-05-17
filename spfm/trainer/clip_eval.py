@@ -84,7 +84,7 @@ def clip_eval(
 
     eff_batch = int(max(1, batch_size))
     for s in range(0, len(image_paths), eff_batch):
-        batch_paths = image_paths[s:s + eff_batch]
+        batch_paths = image_paths[s : s + eff_batch]
         imgs = []
         for p in batch_paths:
             with Image.open(p) as im:

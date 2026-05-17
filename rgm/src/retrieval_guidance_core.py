@@ -14,10 +14,10 @@ import torch
 import torch.nn.functional as F
 from PIL import Image, ImageDraw, ImageFont
 
-
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class RuntimeConfig:
@@ -48,6 +48,7 @@ class RuntimeConfig:
 # Reproducibility
 # ---------------------------------------------------------------------------
 
+
 def set_seed(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
@@ -58,6 +59,7 @@ def set_seed(seed: int) -> None:
 # ---------------------------------------------------------------------------
 # Image utilities
 # ---------------------------------------------------------------------------
+
 
 def pil_to_rgb(image: Image.Image) -> Image.Image:
     return image.convert("RGB") if image.mode != "RGB" else image
@@ -77,9 +79,12 @@ def flatten_latents(latents: torch.Tensor) -> torch.Tensor:
 # Latent layout helpers
 # ---------------------------------------------------------------------------
 
+
 def _packed_to_spatial_latents(latents: torch.Tensor) -> torch.Tensor:
     if latents.ndim != 3:
-        raise ValueError(f"Expected packed latents with shape [B, T, C], got {tuple(latents.shape)}")
+        raise ValueError(
+            f"Expected packed latents with shape [B, T, C], got {tuple(latents.shape)}"
+        )
 
     batch_size, tokens, channels = latents.shape
     side = int(math.isqrt(tokens))
@@ -91,7 +96,9 @@ def _packed_to_spatial_latents(latents: torch.Tensor) -> torch.Tensor:
 
 def _spatial_to_packed_latents(latents: torch.Tensor) -> torch.Tensor:
     if latents.ndim != 4:
-        raise ValueError(f"Expected spatial latents with shape [B, C, H, W], got {tuple(latents.shape)}")
+        raise ValueError(
+            f"Expected spatial latents with shape [B, C, H, W], got {tuple(latents.shape)}"
+        )
 
     batch_size, channels, height, width = latents.shape
     return latents.reshape(batch_size, channels, height * width).permute(0, 2, 1).contiguous()
@@ -121,6 +128,7 @@ def _resize_packed_reference_latents_to_match(
 # Step / window utilities
 # ---------------------------------------------------------------------------
 
+
 def step_fraction(step_index: int, total_steps: int) -> float:
     if total_steps <= 1:
         return 1.0
@@ -141,6 +149,7 @@ def in_guidance_window(
 # Reference paths
 # ---------------------------------------------------------------------------
 
+
 def resolve_reference_cache_path(cfg: RuntimeConfig) -> Path:
     if cfg.reference_cache_path:
         return Path(cfg.reference_cache_path)
@@ -158,6 +167,7 @@ def resolve_reference_images_dir(cfg: RuntimeConfig) -> Path:
 # ---------------------------------------------------------------------------
 # VAE encoding
 # ---------------------------------------------------------------------------
+
 
 @torch.no_grad()
 def encode_images_to_latents(
@@ -205,6 +215,7 @@ def encode_images_to_latents(
 # RMG update
 # ---------------------------------------------------------------------------
 
+
 @torch.no_grad()
 def rmg_velocity_update(
     current_latents: torch.Tensor,
@@ -218,7 +229,9 @@ def rmg_velocity_update(
         mu_ref(x,t) = sum_i softmax(logits_i) d_i
         v_guided(x,t) = (mu_ref(x,t) - x_t) / (1-t)
     """
-    reference_latents = _resize_packed_reference_latents_to_match(reference_latents, current_latents)
+    reference_latents = _resize_packed_reference_latents_to_match(
+        reference_latents, current_latents
+    )
     x = flatten_latents(current_latents.float())
     d = flatten_latents(reference_latents.float())
 
@@ -259,6 +272,7 @@ def rmg_velocity_update(
 # Pipeline construction
 # ---------------------------------------------------------------------------
 
+
 def build_pipe(model_id: str, dtype: torch.dtype, device: str):
     pipe, pipe_kind = _load_pipe(model_id, dtype)
     _configure_pipe(pipe, device)
@@ -298,6 +312,7 @@ def _load_pipe(model_id: str, dtype: torch.dtype):
     if pipe is None:
         try:
             from diffusers import Flux2Pipeline
+
             pipe = Flux2Pipeline.from_pretrained(
                 model_id,
                 torch_dtype=dtype,
@@ -368,6 +383,7 @@ def _base_pipe_kwargs(prompt: str, cfg: RuntimeConfig) -> dict:
 # Image generation
 # ---------------------------------------------------------------------------
 
+
 @torch.no_grad()
 def generate_single_image(
     pipe,
@@ -384,10 +400,10 @@ def generate_single_image(
     return out.images[0]
 
 
-
 # ---------------------------------------------------------------------------
 # Visualization
 # ---------------------------------------------------------------------------
+
 
 def image_grid(images: List[Image.Image], rows: int, cols: int) -> Image.Image:
     if len(images) == 0:
@@ -441,7 +457,10 @@ def add_labels_and_title(
         x = idx * panel_width
         canvas.paste(pil_to_rgb(image), (x, title_height))
         draw.rectangle(
-            [(x, title_height + panel_height), (x + panel_width, title_height + panel_height + label_height)],
+            [
+                (x, title_height + panel_height),
+                (x + panel_width, title_height + panel_height + label_height),
+            ],
             fill=(240, 240, 240),
         )
         label_bbox = draw.textbbox((0, 0), label, font=font)
@@ -454,6 +473,7 @@ def add_labels_and_title(
 # ---------------------------------------------------------------------------
 # Reference persistence
 # ---------------------------------------------------------------------------
+
 
 def save_reference_cache(
     cache_path: Path,
@@ -498,6 +518,7 @@ def load_reference_image(cfg: RuntimeConfig, index: int) -> Optional[Image.Image
 # ---------------------------------------------------------------------------
 # Nearest-neighbour retrieval
 # ---------------------------------------------------------------------------
+
 
 @torch.no_grad()
 def find_nearest_reference(

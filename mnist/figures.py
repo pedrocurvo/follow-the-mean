@@ -18,7 +18,6 @@ import torch
 from sklearn.neighbors import KNeighborsClassifier
 from torchvision import datasets, transforms
 
-
 # ---------------------------------------------------------------------------
 # Plot Style
 # ---------------------------------------------------------------------------
@@ -130,7 +129,9 @@ def _render_steerability_plot(
         color=C_PURPLE,
         alpha=0.12,
     )
-    ax.axhline(np.mean(uncond_accs), linestyle=":", linewidth=1.5, color=C_GRAY, label="Unconditional")
+    ax.axhline(
+        np.mean(uncond_accs), linestyle=":", linewidth=1.5, color=C_GRAY, label="Unconditional"
+    )
     ax.axhline(np.mean(hard_accs), linestyle="--", linewidth=1.5, color=C_RED, label="Hard Filter")
     ax.set_xscale("log")
     ax.set_xlabel(r"$M$", fontsize=28)
@@ -160,6 +161,7 @@ def _render_steerability_plot(
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -248,6 +250,7 @@ def parse_args() -> argparse.Namespace:
 # Runtime Utilities
 # ---------------------------------------------------------------------------
 
+
 def pick_device(device_arg: str) -> torch.device:
     if device_arg == "cpu":
         return torch.device("cpu")
@@ -265,11 +268,14 @@ def set_seed(seed: int) -> None:
 # Flow Kernels And Posteriors
 # ---------------------------------------------------------------------------
 
+
 def sigma_t(t: torch.Tensor | float, sigma_min: float = 1e-4) -> torch.Tensor | float:
     return (1 - t) + sigma_min
 
 
-def flow_kernel(z: torch.Tensor, X: torch.Tensor, t: torch.Tensor | float, sigma_min: float = 1e-4) -> torch.Tensor:
+def flow_kernel(
+    z: torch.Tensor, X: torch.Tensor, t: torch.Tensor | float, sigma_min: float = 1e-4
+) -> torch.Tensor:
     sig = sigma_t(t, sigma_min)
     means = t * X
     if z.dim() == 1:
@@ -280,7 +286,10 @@ def flow_kernel(z: torch.Tensor, X: torch.Tensor, t: torch.Tensor | float, sigma
 
 
 def time_kernel(
-    X_unlabeled: torch.Tensor, X_labeled: torch.Tensor, t: torch.Tensor | float, sigma_min: float = 1e-4
+    X_unlabeled: torch.Tensor,
+    X_labeled: torch.Tensor,
+    t: torch.Tensor | float,
+    sigma_min: float = 1e-4,
 ) -> torch.Tensor:
     sig = sigma_t(t, sigma_min)
     bw = 2 * sig**2 / (t**2 + 1e-8)
@@ -351,7 +360,9 @@ def velocity_field(
     return (mu - z) / (1 - t + t_eps)
 
 
-def unconditional_mean(z: torch.Tensor, X_db: torch.Tensor, t: torch.Tensor | float, sigma_min: float = 1e-4) -> torch.Tensor:
+def unconditional_mean(
+    z: torch.Tensor, X_db: torch.Tensor, t: torch.Tensor | float, sigma_min: float = 1e-4
+) -> torch.Tensor:
     log_w = flow_kernel(z, X_db, t, sigma_min)
     log_Z = torch.logsumexp(log_w, dim=1, keepdim=True)
     weights = (log_w - log_Z).exp()
@@ -359,7 +370,11 @@ def unconditional_mean(z: torch.Tensor, X_db: torch.Tensor, t: torch.Tensor | fl
 
 
 def unconditional_velocity(
-    z: torch.Tensor, X_db: torch.Tensor, t: torch.Tensor | float, sigma_min: float = 1e-4, t_eps: float = 1e-3
+    z: torch.Tensor,
+    X_db: torch.Tensor,
+    t: torch.Tensor | float,
+    sigma_min: float = 1e-4,
+    t_eps: float = 1e-3,
 ) -> torch.Tensor:
     mu = unconditional_mean(z, X_db, t, sigma_min)
     return (mu - z) / (1 - t + t_eps)
@@ -368,6 +383,7 @@ def unconditional_velocity(
 # ---------------------------------------------------------------------------
 # Data Selection
 # ---------------------------------------------------------------------------
+
 
 def select_labeled(
     X: torch.Tensor, y: torch.Tensor, M: int, seed: int = 0
@@ -391,6 +407,7 @@ def select_labeled(
 # ---------------------------------------------------------------------------
 # Sampling
 # ---------------------------------------------------------------------------
+
 
 @torch.no_grad()
 def generate_unconditional(
@@ -447,6 +464,7 @@ def generate_samples(
 # Data Loading And Plot Helpers
 # ---------------------------------------------------------------------------
 
+
 def save_mnist_grid(
     samples: torch.Tensor,
     title: str,
@@ -464,7 +482,9 @@ def save_mnist_grid(
 
     for i, ax in enumerate(axes_arr):
         if i < n:
-            img = (samples[i].detach().cpu() * std_vec.cpu() + mean_vec.cpu()).reshape(28, 28).numpy()
+            img = (
+                (samples[i].detach().cpu() * std_vec.cpu() + mean_vec.cpu()).reshape(28, 28).numpy()
+            )
             ax.imshow(np.clip(img, 0.0, 1.0), cmap=cmap, vmin=0.0, vmax=1.0)
         ax.axis("off")
 
@@ -507,6 +527,7 @@ def load_mnist_binary_subset(
 # Figure Builders
 # ---------------------------------------------------------------------------
 
+
 def plot_accuracy_vs_t(
     X: torch.Tensor,
     y: torch.Tensor,
@@ -521,7 +542,9 @@ def plot_accuracy_vs_t(
         trial_accs = []
         for seed in range(n_trials):
             X_l, y_l, X_u, y_u = select_labeled(X, y, m_labeled, seed=seed)
-            post = infer_label_posteriors(X_u, X_l, y_l, K=2, t=torch.tensor(t_val, device=X.device))
+            post = infer_label_posteriors(
+                X_u, X_l, y_l, K=2, t=torch.tensor(t_val, device=X.device)
+            )
             acc = (post.argmax(1) == y_u).float().mean().item()
             trial_accs.append(acc)
         means.append(float(np.mean(trial_accs)))
@@ -537,7 +560,13 @@ def plot_accuracy_vs_t(
         color=C_GREEN,
         label=f"M={m_labeled}",
     )
-    ax.fill_between(t_values, np.array(means) - np.array(stds), np.array(means) + np.array(stds), color=C_GREEN, alpha=0.12)
+    ax.fill_between(
+        t_values,
+        np.array(means) - np.array(stds),
+        np.array(means) + np.array(stds),
+        color=C_GREEN,
+        alpha=0.12,
+    )
     ax.axhline(0.5, linestyle="--", linewidth=1.5, color=C_GRAY, label="chance")
     ax.set_xlabel("t", fontsize=14)
     ax.set_ylabel("Label inference accuracy", fontsize=14)
@@ -566,7 +595,9 @@ def plot_accuracy_vs_m(
         trial_accs = []
         for seed in range(n_trials):
             X_l, y_l, X_u, y_u = select_labeled(X, y, m_val, seed=seed)
-            post = infer_label_posteriors(X_u, X_l, y_l, K=2, t=torch.tensor(t_fixed, device=X.device))
+            post = infer_label_posteriors(
+                X_u, X_l, y_l, K=2, t=torch.tensor(t_fixed, device=X.device)
+            )
             acc = (post.argmax(1) == y_u).float().mean().item()
             trial_accs.append(acc)
         means.append(float(np.mean(trial_accs)))
@@ -582,7 +613,13 @@ def plot_accuracy_vs_m(
         color=C_BLUE,
         label=f"t={t_fixed}",
     )
-    ax.fill_between(m_values, np.array(means) - np.array(stds), np.array(means) + np.array(stds), color=C_BLUE, alpha=0.12)
+    ax.fill_between(
+        m_values,
+        np.array(means) - np.array(stds),
+        np.array(means) + np.array(stds),
+        color=C_BLUE,
+        alpha=0.12,
+    )
     ax.axhline(0.5, linestyle="--", linewidth=1.5, color=C_GRAY, label="chance")
     ax.set_xscale("log")
     ax.set_xlabel("Labeled points M", fontsize=14)
@@ -609,7 +646,9 @@ def plot_steerability_vs_m(
 ) -> None:
     target_class = 1
     cache_path = output_path.with_suffix(".npz")
-    cached = _load_steerability_cache(cache_path, m_values, n_trials, n_eval, gen_steps, target_class)
+    cached = _load_steerability_cache(
+        cache_path, m_values, n_trials, n_eval, gen_steps, target_class
+    )
 
     if cached is None:
         knn = KNeighborsClassifier(n_neighbors=5)
@@ -622,7 +661,9 @@ def plot_steerability_vs_m(
 
         for seed in range(n_trials):
             _, _, X_u_ref, _ = select_labeled(X, y, m_values[-1], seed=100 + seed)
-            traj_uncond = generate_unconditional(X_u_ref, device=X.device, n_samples=n_eval, n_steps=gen_steps)
+            traj_uncond = generate_unconditional(
+                X_u_ref, device=X.device, n_samples=n_eval, n_steps=gen_steps
+            )
             preds_uncond = knn.predict(traj_uncond[-1].detach().cpu().numpy())
             uncond_accs.append(float((preds_uncond == target_class).mean()))
 
@@ -677,12 +718,15 @@ def plot_steerability_vs_m(
         uncond_accs = cached["uncond_accs"]
         hard_accs = cached["hard_accs"]
 
-    _render_steerability_plot(m_values, steer_means, steer_stds, uncond_accs, hard_accs, output_path)
+    _render_steerability_plot(
+        m_values, steer_means, steer_stds, uncond_accs, hard_accs, output_path
+    )
 
 
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def main() -> int:
     args = parse_args()

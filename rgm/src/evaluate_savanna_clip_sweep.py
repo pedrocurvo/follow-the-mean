@@ -14,17 +14,17 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+import experiment_runtime as exp
+import parser as cli_parser
+import retrieval_guidance_core as poc
 import torch
 from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
 
-import experiment_runtime as exp
-import parser as cli_parser
-import retrieval_guidance_core as poc
-
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def parse_args() -> argparse.Namespace:
     parser = cli_parser.argument_parser("Savanna-object CLIP sweep over reference mixes")
@@ -75,9 +75,11 @@ def parse_args() -> argparse.Namespace:
     )
     return parser.parse_args()
 
+
 # ---------------------------------------------------------------------------
 # Input Discovery
 # ---------------------------------------------------------------------------
+
 
 def load_mix_metadata(input_dir: Path) -> list[dict]:
     rows = []
@@ -95,9 +97,11 @@ def load_shared_reference(reference_dir: Path):
     reference_latents, reference_meta = poc.load_reference_cache(cache_path)
     return reference_latents, reference_meta
 
+
 # ---------------------------------------------------------------------------
 # CLIP Evaluation
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     args = parse_args()
@@ -191,7 +195,9 @@ def main() -> None:
             )
             image_path = seeds_dir / f"{sample_seed:04d}_rmg_guided.png"
             poc.save_pil(guided, str(image_path))
-            exp.save_callback_history(callback.history, histories_dir / f"{sample_seed:04d}_callback_history.txt")
+            exp.save_callback_history(
+                callback.history, histories_dir / f"{sample_seed:04d}_callback_history.txt"
+            )
 
             with Image.open(image_path) as image:
                 image_inputs = processor(images=image.convert("RGB"), return_tensors="pt")
@@ -211,14 +217,16 @@ def main() -> None:
             zebra_count += zebra_cls
             giraffe_count += giraffe_cls
 
-            per_image.append({
-                "seed": sample_seed,
-                "image_path": str(image_path),
-                "clip_score_zebra": zebra_score,
-                "clip_score_giraffe": giraffe_score,
-                "zebra": zebra_cls,
-                "giraffe": giraffe_cls,
-            })
+            per_image.append(
+                {
+                    "seed": sample_seed,
+                    "image_path": str(image_path),
+                    "clip_score_zebra": zebra_score,
+                    "clip_score_giraffe": giraffe_score,
+                    "zebra": zebra_cls,
+                    "giraffe": giraffe_cls,
+                }
+            )
 
         zebra_mean, zebra_std = exp.summarize(zebra_scores)
         giraffe_mean, giraffe_std = exp.summarize(giraffe_scores)

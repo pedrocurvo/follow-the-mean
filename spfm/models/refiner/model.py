@@ -4,13 +4,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 from timm.models.vision_transformer import Mlp, PatchEmbed
 
-from models.pos_embed import VisionRotaryEmbeddingFast
 from models.adaln import modulate
-
+from models.pos_embed import VisionRotaryEmbeddingFast
 
 # ---------------------------------------------------------------------------
 # Attention Blocks
 # ---------------------------------------------------------------------------
+
 
 class RefinerAttention(nn.Module):
     def __init__(
@@ -27,7 +27,7 @@ class RefinerAttention(nn.Module):
             raise ValueError("dim must be divisible by num_heads")
         self.num_heads = num_heads
         self.head_dim = dim // num_heads
-        self.scale = self.head_dim ** -0.5
+        self.scale = self.head_dim**-0.5
         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
         self.q_norm = nn.RMSNorm(self.head_dim, eps=1e-6) if qk_norm else nn.Identity()
         self.k_norm = nn.RMSNorm(self.head_dim, eps=1e-6) if qk_norm else nn.Identity()
@@ -42,11 +42,7 @@ class RefinerAttention(nn.Module):
         rope_ids: torch.Tensor | None = None,
     ) -> torch.Tensor:
         bsz, n, dim = x.shape
-        qkv = (
-            self.qkv(x)
-            .reshape(bsz, n, 3, self.num_heads, self.head_dim)
-            .permute(2, 0, 3, 1, 4)
-        )
+        qkv = self.qkv(x).reshape(bsz, n, 3, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)
         q, k, v = qkv.unbind(0)
         q, k = self.q_norm(q), self.k_norm(k)
         if rope is not None:
@@ -105,17 +101,15 @@ class RefinerBlock(nn.Module):
         feat_rope: VisionRotaryEmbeddingFast | None = None,
         rope_ids: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = (
-            self.adaLN_modulation(c).chunk(6, dim=1)
-        )
+        shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = self.adaLN_modulation(
+            c
+        ).chunk(6, dim=1)
         x = x + gate_msa.unsqueeze(1) * self.attn(
             modulate(self.norm1(x), shift_msa, scale_msa),
             rope=feat_rope,
             rope_ids=rope_ids,
         )
-        x = x + gate_mlp.unsqueeze(1) * self.mlp(
-            modulate(self.norm2(x), shift_mlp, scale_mlp)
-        )
+        x = x + gate_mlp.unsqueeze(1) * self.mlp(modulate(self.norm2(x), shift_mlp, scale_mlp))
         return x
 
 
@@ -138,6 +132,7 @@ class RefinerFinalLayer(nn.Module):
 # ---------------------------------------------------------------------------
 # Latent Refiner
 # ---------------------------------------------------------------------------
+
 
 class LatentRefiner(nn.Module):
     def __init__(
@@ -172,7 +167,9 @@ class LatentRefiner(nn.Module):
         self.grid_h = latent_h // patch_size
         self.grid_w = latent_w // patch_size
         if self.grid_h != self.grid_w:
-            raise ValueError("LatentRefiner RoPE requires square patch grid (latent_h/ps == latent_w/ps)")
+            raise ValueError(
+                "LatentRefiner RoPE requires square patch grid (latent_h/ps == latent_w/ps)"
+            )
         self.patch_embed = PatchEmbed(
             img_size=(latent_h, latent_w),
             patch_size=patch_size,
@@ -213,7 +210,7 @@ class LatentRefiner(nn.Module):
         )
         pos_embed = get_2d_sincos_pos_embed(
             self.pos_embed.shape[-1],
-            int(self.patch_embed.num_patches ** 0.5),
+            int(self.patch_embed.num_patches**0.5),
         )
         self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
 
@@ -222,6 +219,7 @@ class LatentRefiner(nn.Module):
                 nn.init.xavier_uniform_(module.weight)
                 if module.bias is not None:
                     nn.init.constant_(module.bias, 0)
+
         self.apply(_basic_init)
 
         for block in self.blocks:
@@ -253,6 +251,7 @@ class LatentRefiner(nn.Module):
 # ---------------------------------------------------------------------------
 # Positional Embeddings
 # ---------------------------------------------------------------------------
+
 
 def get_2d_sincos_pos_embed(embed_dim, grid_size, cls_token=False, extra_tokens=0):
     grid_h = np.arange(grid_size, dtype=np.float32)

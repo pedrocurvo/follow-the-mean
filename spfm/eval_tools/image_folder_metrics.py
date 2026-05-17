@@ -17,7 +17,6 @@ if str(REPO_ROOT) not in sys.path:
 
 import eval_checkpoint
 
-
 LOGGER = logging.getLogger("compute_image_folder_metrics")
 
 
@@ -26,7 +25,9 @@ def _parse_bool(value):
 
 
 def parse_args() -> argparse.Namespace:
-    ap = argparse.ArgumentParser(description="Compute FID/KID/Inception Score for an existing generated image folder.")
+    ap = argparse.ArgumentParser(
+        description="Compute FID/KID/Inception Score for an existing generated image folder."
+    )
     ap.add_argument("--generated_dir", required=True)
     ap.add_argument("--reference_dir", required=True)
     ap.add_argument("--results_dir", required=True)
@@ -79,7 +80,6 @@ def main() -> int:
         metrics["kid"] = float(cleanfid_fid.compute_kid(reference_dir, generated_dir))
     if ns.inception_score:
         LOGGER.info("[is] computing Inception Score")
-        training_args = train.parse_args(["--config", config_path]) if False else None
         batch_size = 64
         if os.path.exists(config_path):
             try:
@@ -90,7 +90,9 @@ def main() -> int:
                 train_cfg = cfg.get("train", cfg)
                 sampling_cfg = train_cfg.get("sampling", {})
                 dataset_cfg = train_cfg.get("dataset", {})
-                batch_size = int(sampling_cfg.get("clip_eval_batch_size") or dataset_cfg.get("batch_size") or 64)
+                batch_size = int(
+                    sampling_cfg.get("clip_eval_batch_size") or dataset_cfg.get("batch_size") or 64
+                )
             except Exception:
                 batch_size = 64
         is_metrics = eval_checkpoint._compute_inception_score(

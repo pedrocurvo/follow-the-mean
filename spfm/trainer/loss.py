@@ -4,10 +4,10 @@ import math
 
 import torch
 
-
 # ---------------------------------------------------------------------------
 # Main Objective
 # ---------------------------------------------------------------------------
+
 
 def compute_main_loss(
     mu: torch.Tensor,
@@ -43,6 +43,7 @@ def compute_refiner_loss(
 # Drifting Penalty
 # ---------------------------------------------------------------------------
 
+
 def compute_drift_field(
     gen: torch.Tensor,
     pos: torch.Tensor,
@@ -61,22 +62,22 @@ def compute_drift_field(
 
     # V_pos: attraction toward positives
     diff_pos = gen_flat.unsqueeze(1) - pos_flat.unsqueeze(0)  # (B, B, D)
-    dist_pos = diff_pos.norm(dim=-1)                          # (B, B)
+    dist_pos = diff_pos.norm(dim=-1)  # (B, B)
 
     # V_neg: repulsion from other generated samples
     diff_neg = gen_flat.unsqueeze(1) - gen_flat.unsqueeze(0)  # (B, B, D)
-    dist_neg = diff_neg.norm(dim=-1)                          # (B, B)
+    dist_neg = diff_neg.norm(dim=-1)  # (B, B)
     mask = torch.eye(B, device=gen.device, dtype=torch.bool)
-    dist_neg = dist_neg.masked_fill(mask, float('inf'))
+    dist_neg = dist_neg.masked_fill(mask, float("inf"))
 
     # Joint softmax over pos + neg for anti-symmetry
-    all_dists = torch.cat([dist_pos, dist_neg], dim=1)        # (B, 2B)
-    all_w = torch.softmax(-all_dists / tau, dim=1)            # (B, 2B)
+    all_dists = torch.cat([dist_pos, dist_neg], dim=1)  # (B, 2B)
+    all_w = torch.softmax(-all_dists / tau, dim=1)  # (B, 2B)
     w_pos = all_w[:, :B]
     w_neg = all_w[:, B:]
 
-    V_pos = torch.einsum('ij,ijd->id', w_pos, -diff_pos)
-    V_neg = torch.einsum('ij,ijd->id', w_neg, -diff_neg)
+    V_pos = torch.einsum("ij,ijd->id", w_pos, -diff_pos)
+    V_neg = torch.einsum("ij,ijd->id", w_neg, -diff_neg)
     V = V_pos - V_neg
 
     # Unit-normalize drift direction (paper appendix A.6)
@@ -107,12 +108,12 @@ def compute_drifting_loss(
         diff_neg = gen_flat.unsqueeze(1) - gen_flat.unsqueeze(0)
         dist_neg = diff_neg.norm(dim=-1)
         mask = torch.eye(B, device=mu.device, dtype=torch.bool)
-        dist_neg = dist_neg.masked_fill(mask, float('inf'))
+        dist_neg = dist_neg.masked_fill(mask, float("inf"))
         all_dists = torch.cat([dist_pos, dist_neg], dim=1)
         all_w = torch.softmax(-all_dists / tau, dim=1)
         w_pos, w_neg = all_w[:, :B], all_w[:, B:]
-        V_pos = torch.einsum('ij,ijd->id', w_pos, -diff_pos)
-        V_neg = torch.einsum('ij,ijd->id', w_neg, -diff_neg)
+        V_pos = torch.einsum("ij,ijd->id", w_pos, -diff_pos)
+        V_neg = torch.einsum("ij,ijd->id", w_neg, -diff_neg)
         V_unnorm = V_pos - V_neg
         v_mag = float(V_unnorm.norm(dim=-1).mean().item())
         target = mu + V_raw
@@ -134,6 +135,7 @@ def drifting_penalty_schedule(
 # ---------------------------------------------------------------------------
 # Perturbation Losses
 # ---------------------------------------------------------------------------
+
 
 def compute_spatial_dev_loss(
     delta: torch.Tensor,

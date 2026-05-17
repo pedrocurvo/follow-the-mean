@@ -7,25 +7,31 @@ import argparse
 from pathlib import Path
 from typing import Dict, List
 
-import torch
-from PIL import Image
-
 import experiment_runtime as exp
 import parser as cli_parser
 import retrieval_guidance_core as poc
+import torch
+from PIL import Image
 
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def parse_args() -> argparse.Namespace:
-    return cli_parser.config_args("Training-free control experiments for FLUX", "training_free_control.py")
+    return cli_parser.config_args(
+        "Training-free control experiments for FLUX", "training_free_control.py"
+    )
+
 
 # ---------------------------------------------------------------------------
 # Prompt Reference Experiment
 # ---------------------------------------------------------------------------
 
-def prompt_reference_spec(args: argparse.Namespace) -> tuple[list[tuple[str, str]], list[tuple[str, list[str]]], str]:
+
+def prompt_reference_spec(
+    args: argparse.Namespace,
+) -> tuple[list[tuple[str, str]], list[tuple[str, list[str]]], str]:
     data = args.prompt_reference_data
     prompts = [(item["label"], item["prompt"]) for item in data.get("prompts", [])]
     references = []
@@ -38,7 +44,9 @@ def prompt_reference_spec(args: argparse.Namespace) -> tuple[list[tuple[str, str
     return prompts, references, data["title"]
 
 
-def run_prompt_reference_interaction(pipe, args: argparse.Namespace, root_dir: Path, device: str, dtype: torch.dtype):
+def run_prompt_reference_interaction(
+    pipe, args: argparse.Namespace, root_dir: Path, device: str, dtype: torch.dtype
+):
     section_dir = root_dir / "prompt_reference_interaction"
     prompts, references, title = prompt_reference_spec(args)
     rows = []
@@ -66,15 +74,21 @@ def run_prompt_reference_interaction(pipe, args: argparse.Namespace, root_dir: P
             manifest.append(result["metadata"])
         rows.append(row_images)
 
-    grid = exp.labeled_contact_sheet(rows=rows, row_labels=row_labels, col_labels=[label for label, _ in references], title=title)
+    grid = exp.labeled_contact_sheet(
+        rows=rows, row_labels=row_labels, col_labels=[label for label, _ in references], title=title
+    )
     poc.save_pil(grid, str(section_dir / "prompt_reference_interaction_grid.png"))
     exp.save_json({"cases": manifest}, section_dir / "manifest.json")
+
 
 # ---------------------------------------------------------------------------
 # Controllability Experiment
 # ---------------------------------------------------------------------------
 
-def mixed_reference_prompts(reference_size: int, source_prompt: str, target_prompt: str, target_fraction: float) -> List[str]:
+
+def mixed_reference_prompts(
+    reference_size: int, source_prompt: str, target_prompt: str, target_fraction: float
+) -> List[str]:
     target_count = int(round(reference_size * target_fraction))
     neutral_count = reference_size - target_count
     return [target_prompt] * target_count + [source_prompt] * neutral_count
@@ -108,13 +122,17 @@ def run_single_controllability_spec(
         out_dir=section_dir / "baseline_only",
         seed=args.seed,
     )
-    baseline = poc.generate_single_image(pipe, baseline_cfg.prompt, baseline_cfg.seed + 7, baseline_cfg, device)
+    baseline = poc.generate_single_image(
+        pipe, baseline_cfg.prompt, baseline_cfg.seed + 7, baseline_cfg, device
+    )
     poc.save_pil(baseline, str(Path(baseline_cfg.out_dir) / "baseline.png"))
     images.append(baseline)
 
     for fraction in fractions:
         pct = int(round(100 * fraction))
-        reference_prompts = mixed_reference_prompts(args.reference_size, spec["source_prompt"], spec["target_prompt"], fraction)
+        reference_prompts = mixed_reference_prompts(
+            args.reference_size, spec["source_prompt"], spec["target_prompt"], fraction
+        )
         case_dir = section_dir / f"mix_{pct:03d}"
         result = exp.run_case(
             pipe=pipe,
@@ -138,22 +156,30 @@ def run_single_controllability_spec(
         title=spec["title"],
     )
     poc.save_pil(grid, str(section_dir / "controllability_grid.png"))
-    exp.save_json({"cases": manifest, "fractions": fractions, "spec": spec}, section_dir / "manifest.json")
+    exp.save_json(
+        {"cases": manifest, "fractions": fractions, "spec": spec}, section_dir / "manifest.json"
+    )
 
 
-def run_controllability(pipe, args: argparse.Namespace, root_dir: Path, device: str, dtype: torch.dtype):
+def run_controllability(
+    pipe, args: argparse.Namespace, root_dir: Path, device: str, dtype: torch.dtype
+):
     selected_specs = None
     if getattr(args, "controllability_specs", "").strip():
-        selected_specs = {token.strip() for token in args.controllability_specs.split(",") if token.strip()}
+        selected_specs = {
+            token.strip() for token in args.controllability_specs.split(",") if token.strip()
+        }
 
     for spec in controllability_specs(args):
         if selected_specs is not None and spec["slug"] not in selected_specs:
             continue
         run_single_controllability_spec(pipe, args, root_dir, device, dtype, spec)
 
+
 # ---------------------------------------------------------------------------
 # Beta Ablation Experiment
 # ---------------------------------------------------------------------------
+
 
 def ablation_beta_specs(args: argparse.Namespace) -> list[dict]:
     specs = []
@@ -189,7 +215,9 @@ def run_single_ablation_beta_spec(
         out_dir=section_dir / "baseline_only",
         seed=args.seed,
     )
-    baseline = poc.generate_single_image(pipe, baseline_cfg.prompt, baseline_cfg.seed + 7, baseline_cfg, device)
+    baseline = poc.generate_single_image(
+        pipe, baseline_cfg.prompt, baseline_cfg.seed + 7, baseline_cfg, device
+    )
     poc.save_pil(baseline, str(Path(baseline_cfg.out_dir) / "baseline.png"))
 
     for schedule in schedules:
@@ -221,16 +249,23 @@ def run_single_ablation_beta_spec(
         )
         poc.save_pil(grid, str(section_dir / f"{schedule}_grid.png"))
 
-    exp.save_json({"spec": spec, "schedules": schedules, "strengths": strengths, "cases": manifest}, section_dir / "manifest.json")
+    exp.save_json(
+        {"spec": spec, "schedules": schedules, "strengths": strengths, "cases": manifest},
+        section_dir / "manifest.json",
+    )
 
 
-def run_ablation_beta(pipe, args: argparse.Namespace, root_dir: Path, device: str, dtype: torch.dtype):
+def run_ablation_beta(
+    pipe, args: argparse.Namespace, root_dir: Path, device: str, dtype: torch.dtype
+):
     for spec in ablation_beta_specs(args):
         run_single_ablation_beta_spec(pipe, args, root_dir, device, dtype, spec)
+
 
 # ---------------------------------------------------------------------------
 # Single Case Execution
 # ---------------------------------------------------------------------------
+
 
 def run_image_reference_case(
     pipe,
@@ -253,13 +288,23 @@ def run_image_reference_case(
 
     case_dir.mkdir(parents=True, exist_ok=True)
     reference_label = reference.get("label") or f"image reference: {image_dir.name}"
-    runtime_cfg = exp.make_runtime_cfg(args, prompt=prompt, reference_prompt=reference_label, out_dir=case_dir, seed=args.seed)
+    runtime_cfg = exp.make_runtime_cfg(
+        args, prompt=prompt, reference_prompt=reference_label, out_dir=case_dir, seed=args.seed
+    )
 
     reference_id = exp.make_image_reference_id(args, image_paths)
     image_reference_dir = exp.shared_references_dir(root_dir) / reference_id
-    reference_cfg = exp.make_runtime_cfg(args, prompt=prompt, reference_prompt=reference_label, out_dir=image_reference_dir, seed=args.reference_seed)
+    reference_cfg = exp.make_runtime_cfg(
+        args,
+        prompt=prompt,
+        reference_prompt=reference_label,
+        out_dir=image_reference_dir,
+        seed=args.reference_seed,
+    )
 
-    baseline = poc.generate_single_image(pipe, runtime_cfg.prompt, runtime_cfg.seed + 7, runtime_cfg, device)
+    baseline = poc.generate_single_image(
+        pipe, runtime_cfg.prompt, runtime_cfg.seed + 7, runtime_cfg, device
+    )
     poc.save_pil(baseline, str(case_dir / "baseline.png"))
 
     reference_latents, reference_meta = exp.load_or_build_image_reference(
@@ -278,10 +323,16 @@ def run_image_reference_case(
     )
     poc.save_pil(guided, str(case_dir / "rmg_guided.png"))
 
-    nn_index, nn_dist2 = poc.find_nearest_reference(guided, reference_latents, pipe, runtime_cfg, device)
+    nn_index, nn_dist2 = poc.find_nearest_reference(
+        guided, reference_latents, pipe, runtime_cfg, device
+    )
     nearest = poc.load_reference_image(reference_cfg, nn_index)
     if nearest is None:
-        nearest = poc.make_text_tile(baseline.width, baseline.height, [f"Nearest reference image missing for index {nn_index}"])
+        nearest = poc.make_text_tile(
+            baseline.width,
+            baseline.height,
+            [f"Nearest reference image missing for index {nn_index}"],
+        )
     poc.save_pil(nearest, str(case_dir / "nearest_reference_neighbor.png"))
 
     comparison = poc.add_labels_and_title(
@@ -312,7 +363,9 @@ def run_image_reference_case(
     )
 
 
-def run_single_case(pipe, args: argparse.Namespace, root_dir: Path, device: str, dtype: torch.dtype):
+def run_single_case(
+    pipe, args: argparse.Namespace, root_dir: Path, device: str, dtype: torch.dtype
+):
     case = args.case_data
     prompt = case["prompt"]
     slug = case.get("slug") or exp.slugify(prompt)
@@ -321,7 +374,9 @@ def run_single_case(pipe, args: argparse.Namespace, root_dir: Path, device: str,
 
     if reference["type"] == "prompts":
         reference_prompts = list(reference["prompts"])
-        reference_label = reference.get("label") or reference.get("prompt") or "prompt reference set"
+        reference_label = (
+            reference.get("label") or reference.get("prompt") or "prompt reference set"
+        )
         exp.run_case(
             pipe=pipe,
             args=args,
@@ -352,9 +407,11 @@ def run_single_case(pipe, args: argparse.Namespace, root_dir: Path, device: str,
 
     raise ValueError(f"Unsupported reference set type: {reference['type']}")
 
+
 # ---------------------------------------------------------------------------
 # Entrypoint
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     args = parse_args()
@@ -383,7 +440,10 @@ def main() -> None:
     if "ablation-beta" in sections:
         run_ablation_beta(pipe, args, out_dir, device, dtype)
 
-    exp.save_json({"args": vars(args), "sections": sorted(sections), "device": device, "dtype": str(dtype)}, out_dir / "experiment_manifest.json")
+    exp.save_json(
+        {"args": vars(args), "sections": sorted(sections), "device": device, "dtype": str(dtype)},
+        out_dir / "experiment_manifest.json",
+    )
     print("\nDone.")
 
 

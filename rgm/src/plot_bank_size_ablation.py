@@ -18,12 +18,12 @@ from pathlib import Path
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
 
 import matplotlib.pyplot as plt
-
 import parser as cli_parser
 
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def parse_args() -> argparse.Namespace:
     parser = cli_parser.argument_parser("Plot dataset-size ablation metrics")
@@ -41,9 +41,11 @@ def parse_args() -> argparse.Namespace:
     )
     return parser.parse_args()
 
+
 # ---------------------------------------------------------------------------
 # Data Loading
 # ---------------------------------------------------------------------------
+
 
 def load_json(path: Path) -> dict:
     with open(path, "r", encoding="utf-8") as f:
@@ -75,9 +77,11 @@ def extract_series(summary: dict) -> tuple[list[int], list[str], dict[str, list[
 
     return x, labels, metrics
 
+
 # ---------------------------------------------------------------------------
 # Plotting
 # ---------------------------------------------------------------------------
+
 
 def plot_metric(
     x: list[int],
@@ -113,9 +117,11 @@ def plot_metric(
     plt.close()
     print(f"saved: {out_path}")
 
+
 # ---------------------------------------------------------------------------
 # Entrypoint
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     args = parse_args()

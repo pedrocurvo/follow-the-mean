@@ -13,14 +13,14 @@ from pathlib import Path
 from statistics import mean, pstdev
 from typing import Any, List, Sequence
 
+import retrieval_guidance_core as poc
 import torch
 from PIL import Image, ImageDraw, ImageFont, ImageOps
-
-import retrieval_guidance_core as poc
 
 # ---------------------------------------------------------------------------
 # General Utilities
 # ---------------------------------------------------------------------------
+
 
 def slugify(value: str) -> str:
     cleaned = []
@@ -34,9 +34,11 @@ def slugify(value: str) -> str:
         slug = slug.replace("--", "-")
     return slug or "case"
 
+
 # ---------------------------------------------------------------------------
 # RMG Callback
 # ---------------------------------------------------------------------------
+
 
 def beta_schedule_value(guidance_strength: float, beta_schedule: str, t: float) -> float:
     if beta_schedule == "bell":
@@ -113,9 +115,13 @@ class RMGCallback:
         # update but avoids needing prev_latents entirely. Use it if pipeline
         # internals change.
         if self.prev_latents is not None and dt > 0:
-            u_theta = (latents - self.prev_latents.to(device=latents.device, dtype=latents.dtype)) / dt
+            u_theta = (
+                latents - self.prev_latents.to(device=latents.device, dtype=latents.dtype)
+            ) / dt
             correction = beta_t * (v_guided - u_theta) * dt
-            stats["u_theta_norm"] = float(poc.flatten_latents(u_theta.float()).norm(dim=-1).mean().item())
+            stats["u_theta_norm"] = float(
+                poc.flatten_latents(u_theta.float()).norm(dim=-1).mean().item()
+            )
         else:
             # First step in the guidance window: prev_latents is not yet
             # available. Fall back to the approximate update; the error is
@@ -127,7 +133,9 @@ class RMGCallback:
         callback_kwargs["latents"] = latents + correction.to(latents.dtype)
         stats["dt"] = float(dt)
         stats["beta_t"] = float(beta_t)
-        stats["correction_norm"] = float(poc.flatten_latents(correction.float()).norm(dim=-1).mean().item())
+        stats["correction_norm"] = float(
+            poc.flatten_latents(correction.float()).norm(dim=-1).mean().item()
+        )
         self.history.append((step_index, t, stats))
 
         if self.verbose:
@@ -137,9 +145,11 @@ class RMGCallback:
             )
         return callback_kwargs
 
+
 # ---------------------------------------------------------------------------
 # File Utilities
 # ---------------------------------------------------------------------------
+
 
 def save_json(payload: Any, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -172,7 +182,9 @@ def normalize_yes_no(text: str) -> str:
     return "unknown"
 
 
-def generate_vlm_answer(model, processor, image: Image.Image, question: str, device: str, max_new_tokens: int) -> str:
+def generate_vlm_answer(
+    model, processor, image: Image.Image, question: str, device: str, max_new_tokens: int
+) -> str:
     messages = [
         {
             "role": "user",
@@ -189,13 +201,17 @@ def generate_vlm_answer(model, processor, image: Image.Image, question: str, dev
         generated_ids = model.generate(**inputs, max_new_tokens=max_new_tokens)
     trimmed = []
     for input_ids, output_ids in zip(inputs["input_ids"], generated_ids):
-        trimmed.append(output_ids[len(input_ids):])
-    decoded = processor.batch_decode(trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False)
+        trimmed.append(output_ids[len(input_ids) :])
+    decoded = processor.batch_decode(
+        trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
+    )
     return decoded[0].strip()
+
 
 # ---------------------------------------------------------------------------
 # Reference IDs And Paths
 # ---------------------------------------------------------------------------
+
 
 def shared_references_dir(root_dir: Path) -> Path:
     return root_dir / "references"
@@ -223,17 +239,23 @@ def make_reference_id(args: argparse.Namespace, reference_prompts: Sequence[str]
 
 
 def has_reference_cache(reference_dir: Path) -> bool:
-    return (reference_dir / "reference_cache.pt").exists() or (reference_dir / "bank_cache.pt").exists()
+    return (reference_dir / "reference_cache.pt").exists() or (
+        reference_dir / "bank_cache.pt"
+    ).exists()
 
 
-def resolve_staged_reference_dir(root_dir: Path, reference_id: str, reference_prompts: Sequence[str]) -> Path:
+def resolve_staged_reference_dir(
+    root_dir: Path, reference_id: str, reference_prompts: Sequence[str]
+) -> Path:
     reference_root = shared_references_dir(root_dir)
     canonical_dir = reference_root / reference_id
     if has_reference_cache(canonical_dir):
         return canonical_dir
 
     label = make_reference_label(reference_prompts)
-    candidates = sorted(path for path in reference_root.glob(f"{label}-*") if has_reference_cache(path))
+    candidates = sorted(
+        path for path in reference_root.glob(f"{label}-*") if has_reference_cache(path)
+    )
     if candidates:
         print(f"Reusing staged reference with legacy id: {candidates[0]}")
         return candidates[0]
@@ -243,7 +265,9 @@ def resolve_staged_reference_dir(root_dir: Path, reference_id: str, reference_pr
 
 def list_image_paths(image_dir: Path) -> List[Path]:
     exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
-    return sorted(path for path in image_dir.iterdir() if path.is_file() and path.suffix.lower() in exts)
+    return sorted(
+        path for path in image_dir.iterdir() if path.is_file() and path.suffix.lower() in exts
+    )
 
 
 def make_image_reference_id(args: argparse.Namespace, image_paths: Sequence[Path]) -> str:
@@ -257,9 +281,11 @@ def make_image_reference_id(args: argparse.Namespace, image_paths: Sequence[Path
     digest = hashlib.sha1(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()[:12]
     return f"image-reference-{digest}"
 
+
 # ---------------------------------------------------------------------------
 # Runtime Configuration
 # ---------------------------------------------------------------------------
+
 
 def make_runtime_cfg(
     args: argparse.Namespace,
@@ -316,11 +342,15 @@ def make_reference_cfg(
     )
     return cfg, reference_id
 
+
 # ---------------------------------------------------------------------------
 # Reference Construction
 # ---------------------------------------------------------------------------
 
-def build_reference_from_prompts(pipe, cfg: poc.RuntimeConfig, reference_prompts: Sequence[str], device: str):
+
+def build_reference_from_prompts(
+    pipe, cfg: poc.RuntimeConfig, reference_prompts: Sequence[str], device: str
+):
     reference_images: List[Image.Image] = []
     for i, prompt in enumerate(reference_prompts):
         print(f"[reference {i + 1}/{len(reference_prompts)}] {prompt}")
@@ -329,10 +359,15 @@ def build_reference_from_prompts(pipe, cfg: poc.RuntimeConfig, reference_prompts
 
     rows = max(1, math.ceil(len(reference_images) / 4))
     cols = min(4, len(reference_images))
-    poc.save_pil(poc.image_grid(reference_images, rows=rows, cols=cols), str(Path(cfg.out_dir) / "reference_grid.png"))
+    poc.save_pil(
+        poc.image_grid(reference_images, rows=rows, cols=cols),
+        str(Path(cfg.out_dir) / "reference_grid.png"),
+    )
     poc.save_reference_images(reference_images, cfg)
 
-    reference_latents = poc.encode_images_to_latents(reference_images, pipe, cfg.height, cfg.width, device)
+    reference_latents = poc.encode_images_to_latents(
+        reference_images, pipe, cfg.height, cfg.width, device
+    )
     reference_meta = {
         "reference_prompt": cfg.reference_prompt,
         "reference_size": len(reference_prompts),
@@ -345,7 +380,10 @@ def build_reference_from_prompts(pipe, cfg: poc.RuntimeConfig, reference_prompts
         "reference_prompt_counts": dict(Counter(reference_prompts)),
     }
     Path(cfg.out_dir).mkdir(parents=True, exist_ok=True)
-    torch.save({"reference_latents": reference_latents.detach().cpu(), "meta": reference_meta}, poc.resolve_reference_cache_path(cfg))
+    torch.save(
+        {"reference_latents": reference_latents.detach().cpu(), "meta": reference_meta},
+        poc.resolve_reference_cache_path(cfg),
+    )
     print(f"saved: {poc.resolve_reference_cache_path(cfg)}")
     save_json(reference_meta, Path(cfg.out_dir) / "reference_metadata.json")
     return reference_latents, reference_meta
@@ -371,14 +409,19 @@ def build_reference_from_images(
 
     rows = max(1, math.ceil(len(reference_images) / 4))
     cols = min(4, len(reference_images))
-    poc.save_pil(poc.image_grid(reference_images, rows=rows, cols=cols), str(image_reference_dir / "reference_grid.png"))
+    poc.save_pil(
+        poc.image_grid(reference_images, rows=rows, cols=cols),
+        str(image_reference_dir / "reference_grid.png"),
+    )
 
     reference_images_dir = image_reference_dir / "reference_images"
     reference_images_dir.mkdir(parents=True, exist_ok=True)
     for idx, image in enumerate(reference_images):
         poc.save_pil(image, str(reference_images_dir / f"reference_{idx:04d}.png"))
 
-    reference_latents = poc.encode_images_to_latents(reference_images, pipe, cfg.height, cfg.width, device)
+    reference_latents = poc.encode_images_to_latents(
+        reference_images, pipe, cfg.height, cfg.width, device
+    )
     reference_meta = {
         "reference_prompt": cfg.reference_prompt,
         "reference_size": len(reference_images),
@@ -392,7 +435,10 @@ def build_reference_from_images(
         "reference_source": "images",
     }
     image_reference_dir.mkdir(parents=True, exist_ok=True)
-    torch.save({"reference_latents": reference_latents.detach().cpu(), "meta": reference_meta}, image_reference_dir / "reference_cache.pt")
+    torch.save(
+        {"reference_latents": reference_latents.detach().cpu(), "meta": reference_meta},
+        image_reference_dir / "reference_cache.pt",
+    )
     print(f"saved: {image_reference_dir / 'reference_cache.pt'}")
     save_json(reference_meta, image_reference_dir / "reference_metadata.json")
     return reference_latents, reference_meta
@@ -417,7 +463,9 @@ def load_or_build_image_reference(
     return build_reference_from_images(image_paths, pipe, cfg, image_reference_dir, device)
 
 
-def load_or_build_reference(pipe, cfg: poc.RuntimeConfig, reference_prompts: Sequence[str], device: str):
+def load_or_build_reference(
+    pipe, cfg: poc.RuntimeConfig, reference_prompts: Sequence[str], device: str
+):
     cache_path = poc.resolve_reference_cache_path(cfg)
     if cfg.reuse_reference and cache_path.exists():
         print(f"Reusing cached reference: {cache_path}")
@@ -426,9 +474,11 @@ def load_or_build_reference(pipe, cfg: poc.RuntimeConfig, reference_prompts: Seq
         return reference_latents, reference_meta
     return build_reference_from_prompts(pipe, cfg, reference_prompts, device)
 
+
 # ---------------------------------------------------------------------------
 # Guided Generation
 # ---------------------------------------------------------------------------
+
 
 @torch.no_grad()
 def generate_with_rmg(
@@ -482,9 +532,11 @@ def save_callback_history(history, path: Path) -> None:
             f.write("\t".join(parts) + "\n")
     print(f"saved: {path}")
 
+
 # ---------------------------------------------------------------------------
 # Case Runners
 # ---------------------------------------------------------------------------
+
 
 def run_case(
     pipe,
@@ -499,8 +551,15 @@ def run_case(
     dtype: torch.dtype,
     save_baseline: bool = True,
 ):
-    cfg = make_runtime_cfg(args, prompt=prompt, reference_prompt=reference_label, out_dir=case_dir, seed=seed)
-    reference_cfg, reference_id = make_reference_cfg(args=args, root_dir=root_dir, reference_label=reference_label, reference_prompts=reference_prompts)
+    cfg = make_runtime_cfg(
+        args, prompt=prompt, reference_prompt=reference_label, out_dir=case_dir, seed=seed
+    )
+    reference_cfg, reference_id = make_reference_cfg(
+        args=args,
+        root_dir=root_dir,
+        reference_label=reference_label,
+        reference_prompts=reference_prompts,
+    )
     case_dir.mkdir(parents=True, exist_ok=True)
 
     baseline = None
@@ -508,7 +567,9 @@ def run_case(
         baseline = poc.generate_single_image(pipe, cfg.prompt, cfg.seed + 7, cfg, device)
         poc.save_pil(baseline, str(case_dir / "baseline.png"))
 
-    reference_latents, reference_meta = load_or_build_reference(pipe, reference_cfg, reference_prompts, device)
+    reference_latents, reference_meta = load_or_build_reference(
+        pipe, reference_cfg, reference_prompts, device
+    )
     guided, callback = generate_with_rmg(
         pipe=pipe,
         cfg=cfg,
@@ -521,7 +582,9 @@ def run_case(
     nn_index, nn_dist2 = poc.find_nearest_reference(guided, reference_latents, pipe, cfg, device)
     nearest = poc.load_reference_image(reference_cfg, nn_index)
     if nearest is None:
-        nearest = poc.make_text_tile(guided.width, guided.height, [f"Nearest reference image missing for index {nn_index}"])
+        nearest = poc.make_text_tile(
+            guided.width, guided.height, [f"Nearest reference image missing for index {nn_index}"]
+        )
     poc.save_pil(nearest, str(case_dir / "nearest_reference_neighbor.png"))
 
     if baseline is not None:
@@ -553,9 +616,11 @@ def run_case(
         result["baseline"] = baseline
     return result
 
+
 # ---------------------------------------------------------------------------
 # Contact Sheets
 # ---------------------------------------------------------------------------
+
 
 def labeled_contact_sheet(
     rows: List[List[Image.Image]],

@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import math
 import os
 import sys
 from pathlib import Path
@@ -34,7 +33,6 @@ from utils.train_helpers import (
     vae_tag_from_name,
 )
 
-
 LOGGER = logging.getLogger("spfm_nn_triplet_eval")
 NN_SEARCH_CHUNK = 1024
 
@@ -44,7 +42,9 @@ def _parse_bool(value):
 
 
 def parse_args() -> argparse.Namespace:
-    ap = argparse.ArgumentParser(description="Generate 8 images and latent nearest neighbours for three DB variants.")
+    ap = argparse.ArgumentParser(
+        description="Generate 8 images and latent nearest neighbours for three DB variants."
+    )
     ap.add_argument("--config", default="experiments/spfm.yaml")
     ap.add_argument("--ckpt", default="out/spfm_afhq_cat_dog/model_step10000.pt")
     ap.add_argument("--results_dir", default="out/evals/spfm_afhq_cat_dog_step10000/nn_triplet")
@@ -71,7 +71,9 @@ def _setup_logging(results_dir: str) -> None:
     )
 
 
-def _load_args(config_path: str, ckpt: str | None, sample_steps: int | None, decode_batch: int | None):
+def _load_args(
+    config_path: str, ckpt: str | None, sample_steps: int | None, decode_batch: int | None
+):
     ckpt_args_path = None
     if ckpt is not None:
         ckpt_path = Path(ckpt).expanduser()
@@ -177,14 +179,17 @@ def _sample_from_initial_latents(
     return imgs, x
 
 
-def _make_initial_latents(args, *, device: torch.device, base_seed: int) -> tuple[torch.Tensor, list[int]]:
+def _make_initial_latents(
+    args, *, device: torch.device, base_seed: int
+) -> tuple[torch.Tensor, list[int]]:
     seeds = [int(base_seed) + i for i in range(int(args.num_gen))]
     latents = []
     for seed in seeds:
         gen = torch.Generator(device=device)
         gen.manual_seed(seed)
         latents.append(
-            float(args.noise_scale) * torch.randn(
+            float(args.noise_scale)
+            * torch.randn(
                 1,
                 int(args.latent_c),
                 int(args.latent_h),
@@ -236,7 +241,9 @@ def _run_variant(
     nn_grid = make_grid(nn_imgs.detach().cpu(), nrow=int(args.num_gen))
     save_image(sample_grid, os.path.join(variant_dir, "generated_grid.png"))
     save_image(nn_grid, os.path.join(variant_dir, "nearest_neighbors_grid.png"))
-    paired_grid = make_grid(torch.cat([imgs.detach().cpu(), nn_imgs.detach().cpu()], dim=0), nrow=int(args.num_gen))
+    paired_grid = make_grid(
+        torch.cat([imgs.detach().cpu(), nn_imgs.detach().cpu()], dim=0), nrow=int(args.num_gen)
+    )
     save_image(paired_grid, os.path.join(variant_dir, "generated_vs_nn_grid.png"))
 
     metrics = {
@@ -270,7 +277,9 @@ def main() -> int:
 
     vae = load_invae(args.vae_name, device=device)
     vae.eval().requires_grad_(False)
-    latent_c, latent_h, latent_w, latent_downsample = infer_vae_latent_spec(vae, args.image_size, device)
+    latent_c, latent_h, latent_w, latent_downsample = infer_vae_latent_spec(
+        vae, args.image_size, device
+    )
     args.latent_c = latent_c
     args.latent_h = latent_h
     args.latent_w = latent_w
@@ -285,7 +294,9 @@ def main() -> int:
     eval_checkpoint._load_model_weights(model, ckpt_path, use_ema=bool(ns.use_ema))
     raw_model = train._unwrap_model_for_runtime(model)
     raw_model.eval()
-    initial_latents, sample_seeds = _make_initial_latents(args, device=device, base_seed=int(ns.seed))
+    initial_latents, sample_seeds = _make_initial_latents(
+        args, device=device, base_seed=int(ns.seed)
+    )
     torch.save(
         {"sample_seeds": sample_seeds, "initial_latents": initial_latents.detach().cpu()},
         os.path.join(results_dir, "initial_latents.pt"),

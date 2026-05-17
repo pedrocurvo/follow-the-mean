@@ -34,6 +34,7 @@ PATH_KEYS = {
 # Schema
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class CommonConfig:
     model_id: str = "black-forest-labs/FLUX.2-klein-4B"
@@ -76,9 +77,11 @@ class ExperimentConfig:
     python: str | None = None
     path: Path | None = None
 
+
 # ---------------------------------------------------------------------------
 # Key And Path Normalization
 # ---------------------------------------------------------------------------
+
 
 def normalize_key(key: str) -> str:
     return key.replace("-", "_")
@@ -94,9 +97,11 @@ def resolve_repo_path(value: str | Path) -> str:
     path = Path(value)
     return str(path if path.is_absolute() else ROOT / path)
 
+
 # ---------------------------------------------------------------------------
 # YAML Loading
 # ---------------------------------------------------------------------------
+
 
 def load_yaml(path: Path) -> dict[str, Any]:
     config_path = path if path.is_absolute() else ROOT / path
@@ -136,9 +141,11 @@ def load_experiment_config(path: Path) -> ExperimentConfig:
     validate_config(config)
     return config
 
+
 # ---------------------------------------------------------------------------
 # Schema Validation
 # ---------------------------------------------------------------------------
+
 
 def validate_config(config: ExperimentConfig) -> None:
     if not config.script:
@@ -277,11 +284,15 @@ def validate_ablation_beta(ablation_beta: dict[str, Any]) -> None:
         if missing:
             raise ValueError(f"ablation_beta.specs[{index}] missing: {', '.join(missing)}")
         if "reference_prompt" not in spec and "reference_prompts" not in spec:
-            raise ValueError(f"ablation_beta.specs[{index}] requires reference_prompt or reference_prompts")
+            raise ValueError(
+                f"ablation_beta.specs[{index}] requires reference_prompt or reference_prompts"
+            )
+
 
 # ---------------------------------------------------------------------------
 # Experiment Normalization
 # ---------------------------------------------------------------------------
+
 
 def effective_sections(config: ExperimentConfig) -> list[str]:
     if config.sections:
@@ -368,9 +379,11 @@ def defaults_for_script(script: str) -> dict[str, Any]:
         )
     return base
 
+
 # ---------------------------------------------------------------------------
 # Namespace Export
 # ---------------------------------------------------------------------------
+
 
 def namespace_from_config(config_path: Path, script: str | None = None) -> argparse.Namespace:
     config = load_experiment_config(config_path)

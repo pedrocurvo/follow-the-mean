@@ -22,14 +22,17 @@ import experiment_config as cfg_loader
 # Command Construction
 # ---------------------------------------------------------------------------
 
+
 def build_command(config: cfg_loader.ExperimentConfig) -> list[str]:
     python = config.python or sys.executable
     script = SRC / config.script
     return [python, str(script), "--config", str(config.path)]
 
+
 # ---------------------------------------------------------------------------
 # Reference Staging
 # ---------------------------------------------------------------------------
+
 
 def stage_references(config: cfg_loader.ExperimentConfig) -> None:
     ns = cfg_loader.namespace_from_config(config.path, script=config.script)
@@ -47,9 +50,11 @@ def stage_references(config: cfg_loader.ExperimentConfig) -> None:
         except OSError:
             shutil.copytree(source, target)
 
+
 # ---------------------------------------------------------------------------
 # Entrypoint
 # ---------------------------------------------------------------------------
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run an RGM FLUX experiment YAML")

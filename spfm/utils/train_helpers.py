@@ -7,6 +7,7 @@ import re
 import zlib
 from collections import OrderedDict
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
@@ -18,6 +19,9 @@ from torch.utils.data import DataLoader
 from torchvision import transforms as TVT
 from torchvision.utils import make_grid, save_image
 from tqdm.auto import tqdm
+
+if TYPE_CHECKING:
+    from models.spfm.model import LearnedPosteriorMean
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -34,6 +38,7 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 # Raw VAE Adapter
 # ---------------------------------------------------------------------------
+
 
 class _RawPosterior:
     def __init__(self, sample: torch.Tensor):
@@ -67,6 +72,7 @@ class RawVAE(torch.nn.Module):
 # Filesystem And Distributed Helpers
 # ---------------------------------------------------------------------------
 
+
 def ensure_dir(p: str):
     os.makedirs(p, exist_ok=True)
 
@@ -84,11 +90,12 @@ def update_ema(ema_model, model, decay=0.9999):
     """
     Step the EMA model towards the current model.
     """
+
     def _normalize_name(name: str) -> str:
         # DDP / torch.compile wrappers may prepend these prefixes.
         for prefix in ("module.", "_orig_mod."):
             while name.startswith(prefix):
-                name = name[len(prefix):]
+                name = name[len(prefix) :]
         return name
 
     ema_params = OrderedDict((_normalize_name(n), p) for n, p in ema_model.named_parameters())
@@ -104,15 +111,16 @@ def update_ema(ema_model, model, decay=0.9999):
 # Logging
 # ---------------------------------------------------------------------------
 
+
 def create_logger(logging_dir):
     """
     Create a logger that writes to a log file and stdout.
     """
     logging.basicConfig(
         level=logging.INFO,
-        format='[\033[34m%(asctime)s\033[0m] %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S',
-        handlers=[logging.StreamHandler(), logging.FileHandler(f"{logging_dir}/log.txt")]
+        format="[\033[34m%(asctime)s\033[0m] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        handlers=[logging.StreamHandler(), logging.FileHandler(f"{logging_dir}/log.txt")],
     )
     return logging.getLogger(__name__)
 
@@ -120,6 +128,7 @@ def create_logger(logging_dir):
 # ---------------------------------------------------------------------------
 # VAE Helpers
 # ---------------------------------------------------------------------------
+
 
 def _extract_latent_sample(posterior):
     if hasattr(posterior, "latent_dist"):
@@ -189,6 +198,7 @@ def vae_decode(vae, z: torch.Tensor) -> torch.Tensor:
 # ---------------------------------------------------------------------------
 # Data loader (CIFAR-10 -> image_size)
 # ---------------------------------------------------------------------------
+
 
 def _apply_label_filter(ds, label_field: str | None, label_value: str | None):
     if label_field is None or label_value is None:
@@ -337,11 +347,13 @@ def make_loader(
     persistent_workers: bool = True,
     prefetch_factor: int = 2,
 ):
-    tf = TVT.Compose([
-        TVT.Resize(image_size),
-        TVT.CenterCrop(image_size),
-        TVT.ToTensor(),
-    ])
+    tf = TVT.Compose(
+        [
+            TVT.Resize(image_size),
+            TVT.CenterCrop(image_size),
+            TVT.ToTensor(),
+        ]
+    )
     ds = load_dataset(dataset_name, split=split, streaming=hf_streaming)
     ds = _apply_label_filter(ds, label_field, label_value)
     if label_split_spec:
@@ -454,6 +466,7 @@ def get_filtered_label_counts(
 # Latent Database Building
 # ---------------------------------------------------------------------------
 
+
 def build_or_load_db(
     loader: DataLoader,
     vae,
@@ -465,7 +478,7 @@ def build_or_load_db(
     vae_tag: str = "invae",
     return_indices: bool = False,
 ):
-    use_cuda_transfer = (device.type == "cuda")
+    use_cuda_transfer = device.type == "cuda"
 
     def _to_device_fast(x: torch.Tensor, dtype: torch.dtype) -> torch.Tensor:
         x_cpu = x.to(dtype=dtype)
@@ -571,6 +584,7 @@ def build_or_load_db(
 # Closed-Form Sampling
 # ---------------------------------------------------------------------------
 
+
 @torch.no_grad()
 def sample_closedform(
     Xdb: torch.Tensor,
@@ -591,8 +605,8 @@ def sample_closedform(
     time_schedule: str = "uniform",
     db_group_ids: torch.Tensor | None = None,
     model_extra_kwargs: dict[str, object] | None = None,
-    db_retriever = None,
-    model_kwargs_retriever = None,
+    db_retriever=None,
+    model_kwargs_retriever=None,
 ):
     try:
         device = next(model.parameters()).device
@@ -673,6 +687,7 @@ def sample_closedform(
 # Image Generation And Decoding
 # ---------------------------------------------------------------------------
 
+
 @torch.no_grad()
 def generate_images_to_dir(
     Xdb: torch.Tensor,
@@ -691,16 +706,12 @@ def generate_images_to_dir(
     latent_w: int,
     db_group_ids: torch.Tensor | None = None,
     model_extra_kwargs: dict[str, object] | None = None,
-    db_retriever = None,
-    model_kwargs_retriever = None,
+    db_retriever=None,
+    model_kwargs_retriever=None,
     process_index: int = 0,
     num_processes: int = 1,
 ):
     ensure_dir(out_dir)
-    try:
-        device = next(model.parameters()).device
-    except StopIteration:
-        device = Xdb.device
     model.eval()
     start_idx, end_idx = shard_range(total_gen, process_index, num_processes)
     count = start_idx
@@ -744,13 +755,14 @@ def generate_images_to_dir(
 def decode_latents(vae, z: torch.Tensor, decode_batch: int) -> torch.Tensor:
     imgs = []
     for s in range(0, z.shape[0], decode_batch):
-        imgs.append(vae_decode(vae, z[s:s + decode_batch]))
+        imgs.append(vae_decode(vae, z[s : s + decode_batch]))
     return torch.cat(imgs, dim=0)
 
 
 # ---------------------------------------------------------------------------
 # Nearest Neighbors
 # ---------------------------------------------------------------------------
+
 
 @torch.no_grad()
 def nearest_neighbors(queries: torch.Tensor, db: torch.Tensor, chunk: int):
@@ -781,6 +793,7 @@ def nearest_neighbors(queries: torch.Tensor, db: torch.Tensor, chunk: int):
 # ---------------------------------------------------------------------------
 # Projection Rollouts
 # ---------------------------------------------------------------------------
+
 
 @torch.no_grad()
 def project_mu_cross_to_close_plane(
@@ -820,7 +833,7 @@ def project_mu_cross_to_close_plane(
         neigh = db_flat.index_select(0, top_idx[b])
         center = neigh.mean(dim=0, keepdim=True)
         basis = neigh - center
-        vec = (mu_flat[b:b + 1] - center).squeeze(0)
+        vec = (mu_flat[b : b + 1] - center).squeeze(0)
         gram = basis @ basis.t()
         coeff = torch.linalg.pinv(gram) @ (basis @ vec)
         proj_flat[b] = center.squeeze(0) + basis.t() @ coeff
@@ -876,7 +889,7 @@ def sample_proj_close_rollout_grid(
             neigh = db_flat.index_select(0, top_idx[b])
             center = neigh.mean(dim=0, keepdim=True)
             basis = neigh - center
-            vec = (mu_flat[b:b + 1] - center).squeeze(0)
+            vec = (mu_flat[b : b + 1] - center).squeeze(0)
             gram = basis @ basis.t()
             coeff = torch.linalg.pinv(gram) @ (basis @ vec)
             proj_flat[b] = center.squeeze(0) + basis.t() @ coeff
@@ -898,6 +911,7 @@ def sample_proj_close_rollout_grid(
 # ---------------------------------------------------------------------------
 # Feature Encoders
 # ---------------------------------------------------------------------------
+
 
 @torch.no_grad()
 def nearest_neighbors_chunked_features(
@@ -929,14 +943,22 @@ class ClipImageEncoder:
         from transformers import CLIPModel
 
         self.device = device
-        self.model = CLIPModel.from_pretrained(model_name, local_files_only=local_files_only).to(device)
+        self.model = CLIPModel.from_pretrained(model_name, local_files_only=local_files_only).to(
+            device
+        )
         self.model.eval()
-        self.mean = torch.tensor([0.48145466, 0.4578275, 0.40821073], device=device).view(1, 3, 1, 1)
-        self.std = torch.tensor([0.26862954, 0.26130258, 0.27577711], device=device).view(1, 3, 1, 1)
+        self.mean = torch.tensor([0.48145466, 0.4578275, 0.40821073], device=device).view(
+            1, 3, 1, 1
+        )
+        self.std = torch.tensor([0.26862954, 0.26130258, 0.27577711], device=device).view(
+            1, 3, 1, 1
+        )
 
     @torch.no_grad()
     def encode(self, imgs_01: torch.Tensor) -> torch.Tensor:
-        imgs = F.interpolate(imgs_01.to(self.device), size=(224, 224), mode="bicubic", align_corners=False)
+        imgs = F.interpolate(
+            imgs_01.to(self.device), size=(224, 224), mode="bicubic", align_corners=False
+        )
         imgs = ((imgs - self.mean) / self.std).to(dtype=torch.float32)
         feats = self.model.get_image_features(pixel_values=imgs)
         return F.normalize(feats, dim=-1)
@@ -958,7 +980,9 @@ class DinoImageEncoder:
 
     @torch.no_grad()
     def encode_tokens(self, imgs_01: torch.Tensor, out_grid: tuple[int, int]) -> torch.Tensor:
-        imgs = F.interpolate(imgs_01.to(self.device), size=(224, 224), mode="bicubic", align_corners=False)
+        imgs = F.interpolate(
+            imgs_01.to(self.device), size=(224, 224), mode="bicubic", align_corners=False
+        )
         imgs = ((imgs - self.mean) / self.std).to(dtype=torch.float32)
         feats = self.model.forward_features(imgs)
         patch_tokens = None
@@ -987,7 +1011,9 @@ class DinoImageEncoder:
         return F.normalize(tokens, dim=-1)
 
 
-def _dino_target_grid(cross_patchwise: bool, latent_h: int, latent_w: int, cross_patch_size: int) -> tuple[int, int]:
+def _dino_target_grid(
+    cross_patchwise: bool, latent_h: int, latent_w: int, cross_patch_size: int
+) -> tuple[int, int]:
     if cross_patchwise:
         return latent_h // cross_patch_size, latent_w // cross_patch_size
     return 1, 1
@@ -1028,12 +1054,16 @@ def build_or_load_dino_k_from_indices(
         return K
 
     if accelerator.is_main_process:
-        logger.info("[db] building dino K from cached DB indices (%d rows)", int(db_indices.numel()))
-        tf = TVT.Compose([
-            TVT.Resize(image_size),
-            TVT.CenterCrop(image_size),
-            TVT.ToTensor(),
-        ])
+        logger.info(
+            "[db] building dino K from cached DB indices (%d rows)", int(db_indices.numel())
+        )
+        tf = TVT.Compose(
+            [
+                TVT.Resize(image_size),
+                TVT.CenterCrop(image_size),
+                TVT.ToTensor(),
+            ]
+        )
         ds = load_dataset(dataset_name, split=split, streaming=False)
         ds = _apply_label_filter(ds, label_field, label_value)
         ds = _apply_label_split(

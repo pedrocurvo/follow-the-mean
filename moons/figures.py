@@ -13,10 +13,11 @@ Figures:
 5. Label efficiency as the number of references per class varies.
 """
 
-import numpy as np
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
-from pathlib import Path
+import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.gridspec import GridSpec
 from matplotlib.lines import Line2D
@@ -28,47 +29,50 @@ from sklearn.preprocessing import MinMaxScaler
 # Plot Style
 # ---------------------------------------------------------------------------
 
-plt.rcParams.update({
-    'figure.dpi': 150,
-    'font.family': 'sans-serif',
-    'font.size': 10,
-    'axes.titlesize': 11,
-    'axes.labelsize': 10,
-    'legend.fontsize': 9,
-    'xtick.labelsize': 9,
-    'ytick.labelsize': 9,
-    'axes.spines.top': False,
-    'axes.spines.right': False,
-    'axes.linewidth': 0.9,
-    'axes.facecolor': 'white',
-    'figure.facecolor': 'white',
-    'grid.alpha': 0.35,
-    'grid.linewidth': 0.8,
-    'axes.grid': False,
-    'legend.frameon': False,
-    'legend.handlelength': 1.6,
-})
+plt.rcParams.update(
+    {
+        "figure.dpi": 150,
+        "font.family": "sans-serif",
+        "font.size": 10,
+        "axes.titlesize": 11,
+        "axes.labelsize": 10,
+        "legend.fontsize": 9,
+        "xtick.labelsize": 9,
+        "ytick.labelsize": 9,
+        "axes.spines.top": False,
+        "axes.spines.right": False,
+        "axes.linewidth": 0.9,
+        "axes.facecolor": "white",
+        "figure.facecolor": "white",
+        "grid.alpha": 0.35,
+        "grid.linewidth": 0.8,
+        "axes.grid": False,
+        "legend.frameon": False,
+        "legend.handlelength": 1.6,
+    }
+)
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
-C_PURPLE = '#7a1fa2'
-C_RED    = '#d1495b'
-C_GREEN  = '#0b6e4f'
-C_BLUE   = '#1d4e89'
-C_ORANGE = '#c06c00'
-C_TEAL   = '#1f7a8c'
-C_LIME   = '#2f9e44'
-C_GRAY   = '#6c757d'
-C0       = C_BLUE
-C1       = C_RED
-CGRY     = C_GRAY
-CGRN     = C_LIME
+C_PURPLE = "#7a1fa2"
+C_RED = "#d1495b"
+C_GREEN = "#0b6e4f"
+C_BLUE = "#1d4e89"
+C_ORANGE = "#c06c00"
+C_TEAL = "#1f7a8c"
+C_LIME = "#2f9e44"
+C_GRAY = "#6c757d"
+C0 = C_BLUE
+C1 = C_RED
+CGRY = C_GRAY
+CGRN = C_LIME
 
 # Diverging colormap for posteriors
 moon_cmap = LinearSegmentedColormap.from_list(
-    'moon', [C_BLUE, '#d9e4f2', '#f7f7f7', '#f0d7db', C_RED])
+    "moon", [C_BLUE, "#d9e4f2", "#f7f7f7", "#f0d7db", C_RED]
+)
 
 # Paper plot palette for M curves
 M_COLORS = [C_PURPLE, C_RED, C_GREEN, C_BLUE]
@@ -77,13 +81,13 @@ M_COLORS = [C_PURPLE, C_RED, C_GREEN, C_BLUE]
 # Output Paths
 # ---------------------------------------------------------------------------
 
-OUTPUT_DIR = Path(__file__).resolve().parent / 'images'
+OUTPUT_DIR = Path(__file__).resolve().parent / "images"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-FIG1_PANEL_DIR = OUTPUT_DIR / 'fig1_posteriors_panels'
+FIG1_PANEL_DIR = OUTPUT_DIR / "fig1_posteriors_panels"
 FIG1_PANEL_DIR.mkdir(parents=True, exist_ok=True)
-FIG2_PANEL_DIR = OUTPUT_DIR / 'fig2_condition_panels'
+FIG2_PANEL_DIR = OUTPUT_DIR / "fig2_condition_panels"
 FIG2_PANEL_DIR.mkdir(parents=True, exist_ok=True)
-FIG3_PANEL_DIR = OUTPUT_DIR / 'fig3_flow_panels'
+FIG3_PANEL_DIR = OUTPUT_DIR / "fig3_flow_panels"
 FIG3_PANEL_DIR.mkdir(parents=True, exist_ok=True)
 
 # ---------------------------------------------------------------------------
@@ -91,7 +95,7 @@ FIG3_PANEL_DIR.mkdir(parents=True, exist_ok=True)
 # ---------------------------------------------------------------------------
 
 SEED = 7
-N    = 500
+N = 500
 
 X_raw, y = make_moons(n_samples=N, noise=0.08, random_state=SEED)
 y = y.astype(np.int64)
@@ -113,6 +117,7 @@ knn.fit(X, y)
 def frac1(samples):
     return knn.predict(samples).mean()
 
+
 # ---------------------------------------------------------------------------
 # Time Kernel And Sparse-Label Posteriors
 # ---------------------------------------------------------------------------
@@ -121,18 +126,21 @@ SIGMA_MIN, SIGMA_MAX = 0.08, 1.25
 
 
 def sigma_t(t):
-    return SIGMA_MAX * (1. - t) + SIGMA_MIN * t
+    return SIGMA_MAX * (1.0 - t) + SIGMA_MIN * t
 
 
 def soft_posteriors(X_query, refs0, refs1, t):
     s = sigma_t(t)
+
     def log_cls(refs):
         d2 = ((X_query[:, None] - X[refs][None]) ** 2).sum(-1)
         logits = -d2 / (2 * s * s)
         return np.logaddexp.reduce(logits, axis=1) - np.log(len(refs))
+
     z = np.stack([log_cls(refs0), log_cls(refs1)], axis=1)
     z -= z.max(1, keepdims=True)
-    p = np.exp(z); p /= p.sum(1, keepdims=True)
+    p = np.exp(z)
+    p /= p.sum(1, keepdims=True)
     return p
 
 
@@ -144,107 +152,153 @@ def posterior_grid(refs0, refs1, t, n=260):
     P = soft_posteriors(G, refs0, refs1, t)[:, 1].reshape(n, n)
     return XX, YY, P
 
+
 # ---------------------------------------------------------------------------
 # Database Sampling And Conditional Generation
 # ---------------------------------------------------------------------------
+
 
 def sample_refs(M, seed=0):
     rr = np.random.default_rng(seed)
     return rr.choice(idx0, M, replace=False), rr.choice(idx1, M, replace=False)
 
+
 def make_db(frac1_=0.5, size=N, seed=0):
     rr = np.random.default_rng(seed)
-    n1 = int(round(frac1_ * size)); n0 = size - n1
+    n1 = int(round(frac1_ * size))
+    n0 = size - n1
     c1 = rr.choice(idx1, n1, replace=(n1 > len(idx1)))
     c0 = rr.choice(idx0, n0, replace=(n0 > len(idx0)))
-    db = np.concatenate([c0, c1]); rr.shuffle(db)
+    db = np.concatenate([c0, c1])
+    rr.shuffle(db)
     return db
 
+
 def norm_w(w, eps=1e-12):
-    w = np.maximum(w, 0.); s = w.sum()
+    w = np.maximum(w, 0.0)
+    s = w.sum()
     return w / s if s > eps else np.ones_like(w) / len(w)
+
 
 def sample_db(X_db, w, n, seed=0, jitter=0.06):
     rr = np.random.default_rng(seed)
     pick = rr.choice(len(X_db), n, replace=True, p=norm_w(w))
     return X_db[pick] + rr.normal(scale=jitter, size=(n, 2))
 
+
 GAMMA_C, GAMMA_P = 1.8, 2.0
+
 
 def gen_uncond(db_idx, n=400, seed=0):
     return sample_db(X[db_idx], np.ones(len(db_idx)), n, seed)
 
+
 def gen_soft(db_idx, r0, r1, target=1, n=400, seed=0, t=0.92):
     post = soft_posteriors(X[db_idx], r0, r1, t)
-    mass = (post.mean(0) ** GAMMA_C); mass /= mass.sum()
+    mass = post.mean(0) ** GAMMA_C
+    mass /= mass.sum()
     w = (post[:, target] ** GAMMA_P) * mass[target]
     return sample_db(X[db_idx], w, n, seed)
 
+
 def gen_hard(db_idx, target=1, n=400, seed=0):
     keep = np.where(y[db_idx] == target)[0]
-    if not len(keep): keep = np.arange(len(db_idx))
+    if not len(keep):
+        keep = np.arange(len(db_idx))
     return sample_db(X[db_idx[keep]], np.ones(len(keep)), n, seed)
 
 
 def gen_db_comp(db_idx, r0, r1, n=400, seed=0, t=0.92):
     rr = np.random.default_rng(seed)
     post = soft_posteriors(X[db_idx], r0, r1, t)
-    mass = (post.mean(0) ** GAMMA_C); mass /= mass.sum()
-    cls  = rr.choice(2, n, p=mass)
-    out  = []
+    mass = post.mean(0) ** GAMMA_C
+    mass /= mass.sum()
+    cls = rr.choice(2, n, p=mass)
+    out = []
     for k in cls:
         w = norm_w(post[:, k] ** GAMMA_P)
         i = rr.choice(len(db_idx), p=w)
         out.append(X[db_idx[i]] + rr.normal(scale=0.06, size=2))
     return np.array(out)
 
+
 # ---------------------------------------------------------------------------
 # Velocity Field And Trajectory Integration
 # ---------------------------------------------------------------------------
+
 
 def velocity_field(z, db_idx, r0, r1, t, eps=1e-3):
     z = np.asarray(z)
     Xdb = X[db_idx]
     post_db = soft_posteriors(Xdb, r0, r1, max(t, 0.05))
-    mass = (post_db.mean(0) ** GAMMA_C); mass /= mass.sum()
+    mass = post_db.mean(0) ** GAMMA_C
+    mass /= mass.sum()
     post_q = soft_posteriors(z, r0, r1, max(t, 0.05))
     s = sigma_t(t)
     d2 = ((z[:, None] - Xdb[None]) ** 2).sum(-1)
     base = np.exp(-d2 / (2 * s * s))
-    cw = (post_q[:, 0:1] * (post_db[None, :, 0] ** GAMMA_P) * mass[0]
-         + post_q[:, 1:2] * (post_db[None, :, 1] ** GAMMA_P) * mass[1])
+    cw = (
+        post_q[:, 0:1] * (post_db[None, :, 0] ** GAMMA_P) * mass[0]
+        + post_q[:, 1:2] * (post_db[None, :, 1] ** GAMMA_P) * mass[1]
+    )
     w = base * cw
     w /= np.clip(w.sum(1, keepdims=True), 1e-12, None)
     mu = w @ Xdb
-    return (mu - z) / max(1. - t, eps)
+    return (mu - z) / max(1.0 - t, eps)
+
 
 def integrate(x0, db_idx, r0, r1, n_steps=60):
-    ts = np.linspace(0., 0.97, n_steps)
-    x = x0.copy(); traj = [x.copy()]
-    for i in range(len(ts)-1):
-        dt = ts[i+1] - ts[i]
+    ts = np.linspace(0.0, 0.97, n_steps)
+    x = x0.copy()
+    traj = [x.copy()]
+    for i in range(len(ts) - 1):
+        dt = ts[i + 1] - ts[i]
         x = x + dt * velocity_field(x, db_idx, r0, r1, ts[i])
         traj.append(x.copy())
     return ts, np.stack(traj)
+
 
 # ---------------------------------------------------------------------------
 # Plot Helpers
 # ---------------------------------------------------------------------------
 
+
 def clean_ax(ax):
-    ax.set_xlim(x_min, x_max); ax.set_ylim(y_min, y_max)
-    ax.set_xticks([]); ax.set_yticks([])
-    ax.set_aspect('equal')
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_aspect("equal")
+
 
 def bg(ax, a=0.10, s=14):
-    ax.scatter(X[idx0,0], X[idx0,1], s=s, c=C0, alpha=a, linewidths=0, zorder=1)
-    ax.scatter(X[idx1,0], X[idx1,1], s=s, c=C1, alpha=a, linewidths=0, zorder=1)
+    ax.scatter(X[idx0, 0], X[idx0, 1], s=s, c=C0, alpha=a, linewidths=0, zorder=1)
+    ax.scatter(X[idx1, 0], X[idx1, 1], s=s, c=C1, alpha=a, linewidths=0, zorder=1)
+
 
 def plot_refs(ax, r0, r1, s0=70, s1=80):
-    ax.scatter(X[r0,0], X[r0,1], s=s0, c=C0, edgecolors='white', linewidths=1.1,
-               marker='o', zorder=7, label='Reference (class 0)')
-    ax.scatter(X[r1,0], X[r1,1], s=s1, c=C1, edgecolors='white', linewidths=1.1,
-               marker='^', zorder=7, label='Reference (class 1)')
+    ax.scatter(
+        X[r0, 0],
+        X[r0, 1],
+        s=s0,
+        c=C0,
+        edgecolors="white",
+        linewidths=1.1,
+        marker="o",
+        zorder=7,
+        label="Reference (class 0)",
+    )
+    ax.scatter(
+        X[r1, 0],
+        X[r1, 1],
+        s=s1,
+        c=C1,
+        edgecolors="white",
+        linewidths=1.1,
+        marker="^",
+        zorder=7,
+        label="Reference (class 1)",
+    )
 
 
 def save_single_panel(fig, ax, output_path):
@@ -259,50 +313,82 @@ def save_single_panel(fig, ax, output_path):
 
 refs0_5, refs1_5 = sample_refs(5, seed=SEED + 11)
 t_vals = [0.02, 0.25, 0.55, 0.92]
-t_labels = [r'$t = 0.02$  (near noise)', r'$t = 0.25$',
-            r'$t = 0.55$', r'$t = 0.92$  (near data)']
+t_labels = [r"$t = 0.02$  (near noise)", r"$t = 0.25$", r"$t = 0.55$", r"$t = 0.92$  (near data)"]
 
 fig = plt.figure(figsize=(13.5, 3.2))
-gs  = GridSpec(1, 5, figure=fig,
-               width_ratios=[1, 1, 1, 1, 0.055],
-               wspace=0.06, left=0.02, right=0.93, top=0.88, bottom=0.06)
+gs = GridSpec(
+    1,
+    5,
+    figure=fig,
+    width_ratios=[1, 1, 1, 1, 0.055],
+    wspace=0.06,
+    left=0.02,
+    right=0.93,
+    top=0.88,
+    bottom=0.06,
+)
 axes = [fig.add_subplot(gs[0, i]) for i in range(4)]
-cax  = fig.add_subplot(gs[0, 4])
+cax = fig.add_subplot(gs[0, 4])
 
 im = None
 for ax, t, lbl in zip(axes, t_vals, t_labels):
     XX, YY, P = posterior_grid(refs0_5, refs1_5, t)
     im = ax.contourf(XX, YY, P, levels=120, cmap=moon_cmap, vmin=0, vmax=1, zorder=0)
-    ax.contour(XX, YY, P, levels=[0.5], colors='white', linewidths=1.6, alpha=0.9, zorder=3)
+    ax.contour(XX, YY, P, levels=[0.5], colors="white", linewidths=1.6, alpha=0.9, zorder=3)
     bg(ax, a=0.14, s=13)
     plot_refs(ax, refs0_5, refs1_5, s0=60, s1=72)
     ax.set_title(lbl, pad=6, fontsize=10)
     clean_ax(ax)
-    for sp in ax.spines.values(): sp.set_visible(False)
+    for sp in ax.spines.values():
+        sp.set_visible(False)
 
 cb = fig.colorbar(im, cax=cax)
-cb.set_label(r'$\hat{p}_t(y{=}1 \mid x)$', fontsize=9)
+cb.set_label(r"$\hat{p}_t(y{=}1 \mid x)$", fontsize=9)
 cb.ax.tick_params(labelsize=8)
 cb.set_ticks([0, 0.5, 1])
 
 # Shared legend below all panels
 legend_els = [
-    Line2D([0],[0], marker='o', color='w', markerfacecolor=C0, markersize=7, label='Reference - class 0'),
-    Line2D([0],[0], marker='^', color='w', markerfacecolor=C1, markersize=7, label='Reference - class 1'),
-    Line2D([0],[0], color='white', linewidth=1.6, alpha=0.9, label='Decision boundary ($\\hat{p}_t = 0.5$)'),
+    Line2D(
+        [0],
+        [0],
+        marker="o",
+        color="w",
+        markerfacecolor=C0,
+        markersize=7,
+        label="Reference - class 0",
+    ),
+    Line2D(
+        [0],
+        [0],
+        marker="^",
+        color="w",
+        markerfacecolor=C1,
+        markersize=7,
+        label="Reference - class 1",
+    ),
+    Line2D(
+        [0],
+        [0],
+        color="white",
+        linewidth=1.6,
+        alpha=0.9,
+        label="Decision boundary ($\\hat{p}_t = 0.5$)",
+    ),
 ]
-fig.legend(handles=legend_els, loc='lower center', ncol=3,
-           bbox_to_anchor=(0.46, -0.08), fontsize=8.5)
+fig.legend(
+    handles=legend_els, loc="lower center", ncol=3, bbox_to_anchor=(0.46, -0.08), fontsize=8.5
+)
 
-plt.savefig(OUTPUT_DIR / 'fig1_posteriors.pdf', bbox_inches='tight')
-plt.savefig(OUTPUT_DIR / 'fig1_posteriors.png', dpi=200, bbox_inches='tight')
+plt.savefig(OUTPUT_DIR / "fig1_posteriors.pdf", bbox_inches="tight")
+plt.savefig(OUTPUT_DIR / "fig1_posteriors.png", dpi=200, bbox_inches="tight")
 
 # Save each posterior panel as its own cropped figure for manuscript flexibility.
 for ax, t in zip(axes, t_vals):
-    t_tag = f'{t:.2f}'.replace('.', 'p')
+    t_tag = f"{t:.2f}".replace(".", "p")
     title = ax.get_title()
-    ax.set_title('')
-    save_single_panel(fig, ax, FIG1_PANEL_DIR / f'fig1_posterior_t{t_tag}.pdf')
+    ax.set_title("")
+    save_single_panel(fig, ax, FIG1_PANEL_DIR / f"fig1_posterior_t{t_tag}.pdf")
     ax.set_title(title)
 
 plt.close(fig)
@@ -314,54 +400,80 @@ print("[moons/figures] saved fig1_posteriors.pdf")
 # ---------------------------------------------------------------------------
 
 db_bal = make_db(0.5, seed=SEED + 21)
-g_unc  = gen_uncond(db_bal, seed=SEED + 31)
+g_unc = gen_uncond(db_bal, seed=SEED + 31)
 g_soft = gen_soft(db_bal, refs0_5, refs1_5, target=1, seed=SEED + 32)
 g_hard = gen_hard(db_bal, target=1, seed=SEED + 33)
 
 XX_bg, YY_bg, P_bg = posterior_grid(refs0_5, refs1_5, 0.92)
 
-fig, axes = plt.subplots(1, 3, figsize=(12.5, 3.8),
-                          constrained_layout=True)
+fig, axes = plt.subplots(1, 3, figsize=(12.5, 3.8), constrained_layout=True)
 
 configs = [
-    (g_unc,  'Unconditional',            None),
-    (g_soft, rf'Soft labels  ($M=5$)',    C1),
-    (g_hard, 'Hard filter',               C1),
+    (g_unc, "Unconditional", None),
+    (g_soft, r"Soft labels  ($M=5$)", C1),
+    (g_hard, "Hard filter", C1),
 ]
 
 for ax, (gen, title, force_col) in zip(axes, configs):
     # Soft background: posterior field
-    ax.contourf(XX_bg, YY_bg, P_bg, levels=80, cmap=moon_cmap,
-                alpha=0.18, vmin=0, vmax=1, zorder=0)
+    ax.contourf(XX_bg, YY_bg, P_bg, levels=80, cmap=moon_cmap, alpha=0.18, vmin=0, vmax=1, zorder=0)
     bg(ax, a=0.10, s=14)
 
     pred = knn.predict(gen)
     if force_col is None:
         # Colour by predicted class
-        ax.scatter(gen[pred==0,0], gen[pred==0,1], s=24, c=C0,
-                   alpha=0.82, edgecolors='white', linewidths=0.3, zorder=4)
-        ax.scatter(gen[pred==1,0], gen[pred==1,1], s=24, c=C1,
-                   alpha=0.82, edgecolors='white', linewidths=0.3, zorder=4)
+        ax.scatter(
+            gen[pred == 0, 0],
+            gen[pred == 0, 1],
+            s=24,
+            c=C0,
+            alpha=0.82,
+            edgecolors="white",
+            linewidths=0.3,
+            zorder=4,
+        )
+        ax.scatter(
+            gen[pred == 1, 0],
+            gen[pred == 1, 1],
+            s=24,
+            c=C1,
+            alpha=0.82,
+            edgecolors="white",
+            linewidths=0.3,
+            zorder=4,
+        )
     else:
-        ax.scatter(gen[:,0], gen[:,1], s=24, c=force_col,
-                   alpha=0.82, edgecolors='white', linewidths=0.3, zorder=4)
+        ax.scatter(
+            gen[:, 0],
+            gen[:, 1],
+            s=24,
+            c=force_col,
+            alpha=0.82,
+            edgecolors="white",
+            linewidths=0.3,
+            zorder=4,
+        )
 
     plot_refs(ax, refs0_5, refs1_5)
     f1 = frac1(gen)
-    ax.set_title(f'{title}\n'
-                 rf'$\hat{{f}}_1 = {f1:.2f}$', pad=7)
+    ax.set_title(
+        f"{title}\n"
+        rf"$\hat{{f}}_1 = {f1:.2f}$",
+        pad=7,
+    )
     clean_ax(ax)
-    for sp in ax.spines.values(): sp.set_visible(False)
+    for sp in ax.spines.values():
+        sp.set_visible(False)
 
-plt.savefig(OUTPUT_DIR / 'fig2_conditions.pdf', bbox_inches='tight')
-plt.savefig(OUTPUT_DIR / 'fig2_conditions.png', dpi=200, bbox_inches='tight')
+plt.savefig(OUTPUT_DIR / "fig2_conditions.pdf", bbox_inches="tight")
+plt.savefig(OUTPUT_DIR / "fig2_conditions.png", dpi=200, bbox_inches="tight")
 for output_name, ax in [
-    ('fig2_unconditional.pdf', axes[0]),
-    ('fig2_soft_labels.pdf', axes[1]),
-    ('fig2_hard_filter.pdf', axes[2]),
+    ("fig2_unconditional.pdf", axes[0]),
+    ("fig2_soft_labels.pdf", axes[1]),
+    ("fig2_hard_filter.pdf", axes[2]),
 ]:
     original_title = ax.get_title()
-    ax.set_title('')
+    ax.set_title("")
     save_single_panel(fig, ax, FIG2_PANEL_DIR / output_name)
     ax.set_title(original_title)
 plt.close(fig)
@@ -379,7 +491,7 @@ db_maj = make_db(0.85, seed=SEED + 122)
 fig, axes = plt.subplots(2, 2, figsize=(11.6, 8.0), constrained_layout=True)
 
 rr_traj = np.random.default_rng(0)
-x0_shared = rr_traj.normal(0., 0.55, (24, 2))
+x0_shared = rr_traj.normal(0.0, 0.55, (24, 2))
 
 for ax_flow, ax_traj, db_idx, pct, col_end in [
     (axes[0, 0], axes[1, 0], db_min, 15, C0),
@@ -387,8 +499,9 @@ for ax_flow, ax_traj, db_idx, pct, col_end in [
 ]:
     XX_f, YY_f, P_f = posterior_grid(refs0_v, refs1_v, 0.70)
     for ax in (ax_flow, ax_traj):
-        ax.contourf(XX_f, YY_f, P_f, levels=80, cmap=moon_cmap,
-                    alpha=0.15, vmin=0, vmax=1, zorder=0)
+        ax.contourf(
+            XX_f, YY_f, P_f, levels=80, cmap=moon_cmap, alpha=0.15, vmin=0, vmax=1, zorder=0
+        )
         bg(ax, a=0.08, s=14)
 
     # Stream plot
@@ -397,31 +510,47 @@ for ax_flow, ax_traj, db_idx, pct, col_end in [
     GXX, GYY = np.meshgrid(gx, gy)
     G = np.stack([GXX.ravel(), GYY.ravel()], axis=1)
     V = velocity_field(G, db_idx, refs0_v, refs1_v, t=0.58)
-    UU = V[:,0].reshape(36,36)
-    WW = V[:,1].reshape(36,36)
+    UU = V[:, 0].reshape(36, 36)
+    WW = V[:, 1].reshape(36, 36)
     spd = np.sqrt(UU**2 + WW**2)
-    ax_flow.streamplot(gx, gy, UU, WW,
-                       color=spd, cmap='viridis',
-                       density=1.05, linewidth=0.95,
-                       arrowsize=0.85, minlength=0.08, zorder=2)
+    ax_flow.streamplot(
+        gx,
+        gy,
+        UU,
+        WW,
+        color=spd,
+        cmap="viridis",
+        density=1.05,
+        linewidth=0.95,
+        arrowsize=0.85,
+        minlength=0.08,
+        zorder=2,
+    )
 
     # Trajectories
     _, traj = integrate(x0_shared, db_idx, refs0_v, refs1_v)
     alpha_t = 0.28
     for j in range(len(x0_shared)):
-        ax_traj.plot(traj[:,j,0], traj[:,j,1],
-                     color=C_GRAY, alpha=alpha_t, linewidth=1.3, zorder=3)
-    ax_traj.scatter(traj[0,:,0], traj[0,:,1],
-                    s=16, c=C_GRAY, alpha=0.40, zorder=4)
-    ax_traj.scatter(traj[-1,:,0], traj[-1,:,1],
-                    s=28, c=col_end, edgecolors='white', linewidths=0.6,
-                    alpha=0.92, zorder=5)
+        ax_traj.plot(
+            traj[:, j, 0], traj[:, j, 1], color=C_GRAY, alpha=alpha_t, linewidth=1.3, zorder=3
+        )
+    ax_traj.scatter(traj[0, :, 0], traj[0, :, 1], s=16, c=C_GRAY, alpha=0.40, zorder=4)
+    ax_traj.scatter(
+        traj[-1, :, 0],
+        traj[-1, :, 1],
+        s=28,
+        c=col_end,
+        edgecolors="white",
+        linewidths=0.6,
+        alpha=0.92,
+        zorder=5,
+    )
 
     plot_refs(ax_flow, refs0_v, refs1_v)
     plot_refs(ax_traj, refs0_v, refs1_v)
 
-    ax_flow.set_title(f'Database: {100-pct}% class 0, {pct}% class 1\nFlow field', pad=7)
-    ax_traj.set_title(f'Database: {100-pct}% class 0, {pct}% class 1\nTrajectories', pad=7)
+    ax_flow.set_title(f"Database: {100 - pct}% class 0, {pct}% class 1\nFlow field", pad=7)
+    ax_traj.set_title(f"Database: {100 - pct}% class 0, {pct}% class 1\nTrajectories", pad=7)
 
     clean_ax(ax_flow)
     clean_ax(ax_traj)
@@ -429,16 +558,16 @@ for ax_flow, ax_traj, db_idx, pct, col_end in [
         for sp in ax.spines.values():
             sp.set_visible(False)
 
-plt.savefig(OUTPUT_DIR / 'fig3_flow.pdf', bbox_inches='tight')
-plt.savefig(OUTPUT_DIR / 'fig3_flow.png', dpi=200, bbox_inches='tight')
+plt.savefig(OUTPUT_DIR / "fig3_flow.pdf", bbox_inches="tight")
+plt.savefig(OUTPUT_DIR / "fig3_flow.png", dpi=200, bbox_inches="tight")
 for output_name, ax in [
-    ('fig3_minority_flow.pdf', axes[0, 0]),
-    ('fig3_majority_flow.pdf', axes[0, 1]),
-    ('fig3_minority_trajectories.pdf', axes[1, 0]),
-    ('fig3_majority_trajectories.pdf', axes[1, 1]),
+    ("fig3_minority_flow.pdf", axes[0, 0]),
+    ("fig3_majority_flow.pdf", axes[0, 1]),
+    ("fig3_minority_trajectories.pdf", axes[1, 0]),
+    ("fig3_majority_trajectories.pdf", axes[1, 1]),
 ]:
     original_title = ax.get_title()
-    ax.set_title('')
+    ax.set_title("")
     save_single_panel(fig, ax, FIG3_PANEL_DIR / output_name)
     ax.set_title(original_title)
 plt.close(fig)
@@ -449,8 +578,8 @@ print("[moons/figures] saved fig3_flow.pdf")
 # Figure 4: Database Composition Sweep
 # ---------------------------------------------------------------------------
 
-fracs   = np.linspace(0., 1., 11)
-M_list  = [1, 3, 5, 10]
+fracs = np.linspace(0.0, 1.0, 11)
+M_list = [1, 3, 5, 10]
 n_trials = 8
 
 results = {M: [] for M in M_list}
@@ -459,48 +588,67 @@ for M in M_list:
     for frac in fracs:
         vals = []
         for tr in range(n_trials):
-            r0, r1 = sample_refs(M, seed=1000+50*M+tr)
-            db = make_db(frac, seed=2000+100*tr+int(100*frac))
-            g  = gen_db_comp(db, r0, r1, n=360,
-                             seed=3000+100*tr+int(100*frac))
+            r0, r1 = sample_refs(M, seed=1000 + 50 * M + tr)
+            db = make_db(frac, seed=2000 + 100 * tr + int(100 * frac))
+            g = gen_db_comp(db, r0, r1, n=360, seed=3000 + 100 * tr + int(100 * frac))
             vals.append(frac1(g))
         results[M].append((np.mean(vals), np.std(vals)))
-    
+
 
 fig, ax = plt.subplots(figsize=(5.8, 5.0))
 
 # Diagonal reference
-ax.plot(fracs*100, fracs*100, '--', color=C_GRAY,
-        linewidth=1.5, label='Diagonal (identity)', zorder=1)
+ax.plot(
+    fracs * 100,
+    fracs * 100,
+    "--",
+    color=C_GRAY,
+    linewidth=1.5,
+    label="Diagonal (identity)",
+    zorder=1,
+)
 
 for M, col in zip(M_list, M_COLORS):
-    mean = np.array([m for m,s in results[M]])
-    std  = np.array([s for m,s in results[M]])
-    ax.plot(fracs*100, mean*100, marker='o', markersize=4.5,
-            linewidth=2.5, color=col, label=rf'$M = {M}$', zorder=3)
-    ax.fill_between(fracs*100,
-                    (mean-std)*100, (mean+std)*100,
-                    color=col, alpha=0.12, zorder=2)
+    mean = np.array([m for m, s in results[M]])
+    std = np.array([s for m, s in results[M]])
+    ax.plot(
+        fracs * 100,
+        mean * 100,
+        marker="o",
+        markersize=4.5,
+        linewidth=2.5,
+        color=col,
+        label=rf"$M = {M}$",
+        zorder=3,
+    )
+    ax.fill_between(
+        fracs * 100, (mean - std) * 100, (mean + std) * 100, color=col, alpha=0.12, zorder=2
+    )
 
-ax.set_xlabel('Class 1 in database (%)')
-ax.set_ylabel('Generated samples classified as class 1 (%)')
-ax.set_xlim(-2, 102); ax.set_ylim(-2, 102)
+ax.set_xlabel("Class 1 in database (%)")
+ax.set_ylabel("Generated samples classified as class 1 (%)")
+ax.set_xlim(-2, 102)
+ax.set_ylim(-2, 102)
 ax.xaxis.set_major_formatter(mticker.PercentFormatter(xmax=100))
 ax.yaxis.set_major_formatter(mticker.PercentFormatter(xmax=100))
-ax.spines['left'].set_visible(True)
-ax.spines['bottom'].set_visible(True)
-ax.grid(True, linestyle='--', alpha=0.35)
+ax.spines["left"].set_visible(True)
+ax.spines["bottom"].set_visible(True)
+ax.grid(True, linestyle="--", alpha=0.35)
 
-ax.legend(loc='upper left', ncol=1, frameon=False, fontsize=9)
+ax.legend(loc="upper left", ncol=1, frameon=False, fontsize=9)
 
 # Annotation arrow showing amplification
-ax.annotate('Amplification\n(curves above diagonal)',
-            xy=(55, 68), xytext=(20, 82),
-            fontsize=8, color=C_GRAY,
-            arrowprops=dict(arrowstyle='->', color=C_GRAY, lw=0.8))
+ax.annotate(
+    "Amplification\n(curves above diagonal)",
+    xy=(55, 68),
+    xytext=(20, 82),
+    fontsize=8,
+    color=C_GRAY,
+    arrowprops=dict(arrowstyle="->", color=C_GRAY, lw=0.8),
+)
 
-plt.savefig(OUTPUT_DIR / 'fig4_db_composition.pdf', bbox_inches='tight')
-plt.savefig(OUTPUT_DIR / 'fig4_db_composition.png', dpi=200, bbox_inches='tight')
+plt.savefig(OUTPUT_DIR / "fig4_db_composition.pdf", bbox_inches="tight")
+plt.savefig(OUTPUT_DIR / "fig4_db_composition.png", dpi=200, bbox_inches="tight")
 plt.close(fig)
 print("[moons/figures] saved fig4_db_composition.pdf")
 
@@ -509,29 +657,29 @@ print("[moons/figures] saved fig4_db_composition.pdf")
 # Figure 5: Reference-Count Ablation
 # ---------------------------------------------------------------------------
 
-M_grid    = [1, 2, 3, 5, 7, 10, 15, 20]
-frac_tgt  = 0.70
+M_grid = [1, 2, 3, 5, 7, 10, 15, 20]
+frac_tgt = 0.70
 n_trials2 = 12
 
-db_tgt = make_db(frac_tgt, seed=SEED+401)
+db_tgt = make_db(frac_tgt, seed=SEED + 401)
 
 # Hard filter upper bound
-hard_vals = [frac1(gen_hard(db_tgt, target=1, n=350, seed=SEED+500+tr))
-             for tr in range(n_trials2)]
+hard_vals = [
+    frac1(gen_hard(db_tgt, target=1, n=350, seed=SEED + 500 + tr)) for tr in range(n_trials2)
+]
 hard_mean = np.mean(hard_vals)
-hard_std  = np.std(hard_vals)
+hard_std = np.std(hard_vals)
 
 # Unconditional baseline
-unc_vals = [frac1(gen_uncond(db_tgt, n=350, seed=SEED+600+tr))
-            for tr in range(n_trials2)]
+unc_vals = [frac1(gen_uncond(db_tgt, n=350, seed=SEED + 600 + tr)) for tr in range(n_trials2)]
 unc_mean = np.mean(unc_vals)
 
 soft_mean, soft_std = [], []
 for M in M_grid:
     vals = []
     for tr in range(n_trials2):
-        r0, r1 = sample_refs(M, seed=SEED+700+17*M+tr)
-        g = gen_soft(db_tgt, r0, r1, target=1, n=350, seed=SEED+800+23*M+tr)
+        r0, r1 = sample_refs(M, seed=SEED + 700 + 17 * M + tr)
+        g = gen_soft(db_tgt, r0, r1, target=1, n=350, seed=SEED + 800 + 23 * M + tr)
         vals.append(frac1(g))
     soft_mean.append(np.mean(vals))
     soft_std.append(np.std(vals))
@@ -539,43 +687,68 @@ for M in M_grid:
 fig, ax = plt.subplots(figsize=(5.8, 4.4))
 
 # Unconditional baseline band
-ax.axhline(unc_mean*100, color=C_GRAY, linewidth=1.5,
-           linestyle=':', label=f'Unconditional  ({unc_mean:.0%})', zorder=1)
+ax.axhline(
+    unc_mean * 100,
+    color=C_GRAY,
+    linewidth=1.5,
+    linestyle=":",
+    label=f"Unconditional  ({unc_mean:.0%})",
+    zorder=1,
+)
 
 # Hard filter band
-ax.axhspan((hard_mean-hard_std)*100, (hard_mean+hard_std)*100,
-           color=C_BLUE, alpha=0.10, zorder=1)
-ax.axhline(hard_mean*100, color=C_BLUE, linewidth=2.0,
-           linestyle='--', label=f'Hard filter upper bound  ({hard_mean:.0%})', zorder=2)
+ax.axhspan(
+    (hard_mean - hard_std) * 100, (hard_mean + hard_std) * 100, color=C_BLUE, alpha=0.10, zorder=1
+)
+ax.axhline(
+    hard_mean * 100,
+    color=C_BLUE,
+    linewidth=2.0,
+    linestyle="--",
+    label=f"Hard filter upper bound  ({hard_mean:.0%})",
+    zorder=2,
+)
 
 # Soft label curve
-ax.errorbar(M_grid, np.array(soft_mean)*100,
-            yerr=np.array(soft_std)*100,
-            color=C_PURPLE, marker='o', markersize=5.5,
-            linewidth=2.5, capsize=3.5, capthick=1.0,
-            elinewidth=0.9,
-            label='Soft labels', zorder=3)
+ax.errorbar(
+    M_grid,
+    np.array(soft_mean) * 100,
+    yerr=np.array(soft_std) * 100,
+    color=C_PURPLE,
+    marker="o",
+    markersize=5.5,
+    linewidth=2.5,
+    capsize=3.5,
+    capthick=1.0,
+    elinewidth=0.9,
+    label="Soft labels",
+    zorder=3,
+)
 
 # Convergence annotation
 gap_idx = M_grid.index(5)
 gap = (hard_mean - soft_mean[gap_idx]) * 100
-ax.annotate(rf'$M=5$: gap $\approx${gap:.0f}pp',
-            xy=(5, soft_mean[gap_idx]*100),
-            xytext=(8, (soft_mean[gap_idx]-0.08)*100),
-            fontsize=8.5, color=C_GRAY,
-            arrowprops=dict(arrowstyle='->', color=C_GRAY, lw=0.8))
+ax.annotate(
+    rf"$M=5$: gap $\approx${gap:.0f}pp",
+    xy=(5, soft_mean[gap_idx] * 100),
+    xytext=(8, (soft_mean[gap_idx] - 0.08) * 100),
+    fontsize=8.5,
+    color=C_GRAY,
+    arrowprops=dict(arrowstyle="->", color=C_GRAY, lw=0.8),
+)
 
-ax.set_xlabel(r'Reference images per class ($M$)')
-ax.set_ylabel('Generated samples = target class (%)')
+ax.set_xlabel(r"Reference images per class ($M$)")
+ax.set_ylabel("Generated samples = target class (%)")
 ax.yaxis.set_major_formatter(mticker.PercentFormatter(xmax=100))
-ax.set_xlim(0.5, 21); ax.set_ylim(40, 105)
-ax.spines['left'].set_visible(True)
-ax.spines['bottom'].set_visible(True)
-ax.grid(True, linestyle='--', alpha=0.35)
+ax.set_xlim(0.5, 21)
+ax.set_ylim(40, 105)
+ax.spines["left"].set_visible(True)
+ax.spines["bottom"].set_visible(True)
+ax.grid(True, linestyle="--", alpha=0.35)
 
-ax.legend(loc='lower right', frameon=False, fontsize=9)
+ax.legend(loc="lower right", frameon=False, fontsize=9)
 
-plt.savefig(OUTPUT_DIR / 'fig5_m_ablation.pdf', bbox_inches='tight')
-plt.savefig(OUTPUT_DIR / 'fig5_m_ablation.png', dpi=200, bbox_inches='tight')
+plt.savefig(OUTPUT_DIR / "fig5_m_ablation.pdf", bbox_inches="tight")
+plt.savefig(OUTPUT_DIR / "fig5_m_ablation.png", dpi=200, bbox_inches="tight")
 plt.close(fig)
 print("[moons/figures] saved fig5_m_ablation.pdf")

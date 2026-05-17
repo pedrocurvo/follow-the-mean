@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Iterable
 
 import torch
-
 from utils.optim import MuonAdamW
 
 
@@ -46,7 +45,9 @@ def build_optimizer(
         try:
             from lion_pytorch import Lion
         except ImportError as exc:
-            raise ImportError("Lion optimizer requested but lion_pytorch is not installed.") from exc
+            raise ImportError(
+                "Lion optimizer requested but lion_pytorch is not installed."
+            ) from exc
         return Lion(
             model.parameters(),
             lr=args.lr,

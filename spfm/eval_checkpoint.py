@@ -12,19 +12,18 @@ from copy import deepcopy
 from pathlib import Path
 
 import numpy as np
+import run_experiment
 import torch
 import torch.nn.functional as F
+import train
 import yaml
-from PIL import Image
 from accelerate import Accelerator, DistributedDataParallelKwargs
 from accelerate.utils import ProjectConfiguration, set_seed
 from cleanfid import fid as cleanfid_fid
-from torchvision.utils import make_grid, save_image
-from torchvision.models import Inception_V3_Weights, inception_v3
-
-import run_experiment
-import train
+from PIL import Image
 from preprocessing.encoders import load_invae
+from torchvision.models import Inception_V3_Weights, inception_v3
+from torchvision.utils import make_grid, save_image
 from trainer.clip_eval import clip_eval as run_clip_eval
 from trainer.clip_eval import load_clip_runtime, prompt_metric_suffix
 from trainer.db import build_alt_db, build_primary_db
@@ -39,7 +38,6 @@ from utils.train_helpers import (
     vae_tag_from_name,
 )
 
-
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -50,6 +48,7 @@ LOGGER = logging.getLogger("eval_checkpoint")
 # ---------------------------------------------------------------------------
 # CLI And Logging Helpers
 # ---------------------------------------------------------------------------
+
 
 def _parse_bool(value):
     if isinstance(value, bool):
@@ -88,6 +87,7 @@ def _setup_logging(results_dir: str) -> None:
 # ---------------------------------------------------------------------------
 # Config And Checkpoint Resolution
 # ---------------------------------------------------------------------------
+
 
 def _load_config_args(config_path: str):
     with open(config_path, "r", encoding="utf-8") as f:
@@ -172,6 +172,7 @@ def _resolve_model_weights_path(requested_ckpt: str | None, train_out_dir: str) 
 # Runtime Preparation
 # ---------------------------------------------------------------------------
 
+
 def _prepare_reference_args(args):
     ref_args = deepcopy(args)
     ref_args.db = "none"
@@ -192,7 +193,11 @@ def _maybe_override_embed_dim(args) -> None:
         elif not args.cross_decouple_embed:
             expected_embed_dim = args.latent_c * args.cross_patch_size * args.cross_patch_size
     if args.embed_dim != expected_embed_dim:
-        LOGGER.info("[model] overriding embed_dim to expected=%d (was %d)", expected_embed_dim, args.embed_dim)
+        LOGGER.info(
+            "[model] overriding embed_dim to expected=%d (was %d)",
+            expected_embed_dim,
+            args.embed_dim,
+        )
         args.embed_dim = expected_embed_dim
 
 
@@ -200,7 +205,10 @@ def _maybe_override_embed_dim(args) -> None:
 # Image And Metric Helpers
 # ---------------------------------------------------------------------------
 
-def _write_latents_to_dir_if_needed(vae, latents: torch.Tensor, out_dir: str, decode_batch: int) -> None:
+
+def _write_latents_to_dir_if_needed(
+    vae, latents: torch.Tensor, out_dir: str, decode_batch: int
+) -> None:
     existing = sorted(Path(out_dir).glob("*.png"))
     if existing:
         LOGGER.info("[real] reusing %d existing reference images at %s", len(existing), out_dir)
@@ -208,15 +216,18 @@ def _write_latents_to_dir_if_needed(vae, latents: torch.Tensor, out_dir: str, de
     ensure_dir(out_dir)
     count = 0
     for s in range(0, latents.shape[0], decode_batch):
-        imgs = decode_latents(vae, latents[s:s + decode_batch], decode_batch=decode_batch)
+        imgs = decode_latents(vae, latents[s : s + decode_batch], decode_batch=decode_batch)
         for i in range(imgs.shape[0]):
             from torchvision.utils import save_image
+
             save_image(imgs[i], os.path.join(out_dir, f"img_{count:06d}.png"))
             count += 1
     LOGGER.info("[real] wrote %d reference images to %s", count, out_dir)
 
 
-def _compute_inception_score(directory_with_images: str, device: torch.device, batch_size: int, splits: int = 10):
+def _compute_inception_score(
+    directory_with_images: str, device: torch.device, batch_size: int, splits: int = 10
+):
     image_paths = sorted(Path(directory_with_images).glob("*.png"))
     if not image_paths:
         return None
@@ -228,7 +239,7 @@ def _compute_inception_score(directory_with_images: str, device: torch.device, b
     eff_batch = max(1, int(batch_size))
     with torch.no_grad():
         for s in range(0, len(image_paths), eff_batch):
-            batch_paths = image_paths[s:s + eff_batch]
+            batch_paths = image_paths[s : s + eff_batch]
             batch = []
             for path in batch_paths:
                 with Image.open(path) as im:
@@ -243,7 +254,11 @@ def _compute_inception_score(directory_with_images: str, device: torch.device, b
     scores = []
     for split_idx in range(eff_splits):
         start = split_idx * split_size
-        end = num_images if split_idx == eff_splits - 1 else min(num_images, (split_idx + 1) * split_size)
+        end = (
+            num_images
+            if split_idx == eff_splits - 1
+            else min(num_images, (split_idx + 1) * split_size)
+        )
         if end <= start:
             continue
         part = probs[start:end]
@@ -288,7 +303,7 @@ def _load_model_weights(model: torch.nn.Module, ckpt_path: str, use_ema: bool) -
             key = str(name)
             for prefix in ("module.", "_orig_mod."):
                 while key.startswith(prefix):
-                    key = key[len(prefix):]
+                    key = key[len(prefix) :]
                 key = key.replace(f".{prefix}", ".")
             normalized[key] = value
         return normalized
@@ -313,21 +328,37 @@ def _load_model_weights(model: torch.nn.Module, ckpt_path: str, use_ema: bool) -
 # Main
 # ---------------------------------------------------------------------------
 
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Generate images and evaluate a trained checkpoint.")
     ap.add_argument("--config", required=True, help="Path to experiments YAML config.")
-    ap.add_argument("--results_dir", required=True, help="Directory where generated images and metrics are saved.")
+    ap.add_argument(
+        "--results_dir",
+        required=True,
+        help="Directory where generated images and metrics are saved.",
+    )
     ap.add_argument("--ckpt", default=None, help="Optional explicit .pt checkpoint path.")
     ap.add_argument("--total_gen", type=int, required=True, help="Number of samples to generate.")
     ap.add_argument("--gen_batch", type=int, default=None, help="Generation batch size override.")
     ap.add_argument("--sample_steps", type=int, default=None, help="Sampling steps override.")
     ap.add_argument("--decode_batch", type=int, default=None, help="Decode batch size override.")
-    ap.add_argument("--n_img_override", type=_parse_optional_int, default=None, help="Override DB size; use 'none' for full DB.")
+    ap.add_argument(
+        "--n_img_override",
+        type=_parse_optional_int,
+        default=None,
+        help="Override DB size; use 'none' for full DB.",
+    )
     ap.add_argument("--db_override", default=None, help="Override --db selection spec.")
     ap.add_argument("--alt_db_override", default="none", help="Override --alt_db selection spec.")
     ap.add_argument("--reference_mode", choices=["db", "dataset", "none"], default="db")
-    ap.add_argument("--reference_dir", default=None, help="Optional shared directory for decoded reference images.")
-    ap.add_argument("--generated_dir", default=None, help="Optional directory for generated PNG samples.")
+    ap.add_argument(
+        "--reference_dir",
+        default=None,
+        help="Optional shared directory for decoded reference images.",
+    )
+    ap.add_argument(
+        "--generated_dir", default=None, help="Optional directory for generated PNG samples."
+    )
     ap.add_argument("--fid", type=_parse_bool, default=True)
     ap.add_argument("--kid", type=_parse_bool, default=True)
     ap.add_argument("--inception_score", type=_parse_bool, default=True)
@@ -387,7 +418,9 @@ def main() -> int:
         vae = load_invae(training_args.vae_name, device=device)
     vae.eval().requires_grad_(False)
 
-    latent_c, latent_h, latent_w, latent_downsample = infer_vae_latent_spec(vae, training_args.image_size, device)
+    latent_c, latent_h, latent_w, latent_downsample = infer_vae_latent_spec(
+        vae, training_args.image_size, device
+    )
     training_args.latent_c = latent_c
     training_args.latent_h = latent_h
     training_args.latent_w = latent_w
@@ -404,7 +437,11 @@ def main() -> int:
 
     alt_db_artifacts = build_alt_db(training_args, vae=vae, device=device, accelerator=accelerator)
     if alt_db_artifacts.alt_db is not None:
-        LOGGER.info("[db] alt DB shape=%s label=%s", tuple(alt_db_artifacts.alt_db.shape), alt_db_artifacts.alt_db_label)
+        LOGGER.info(
+            "[db] alt DB shape=%s label=%s",
+            tuple(alt_db_artifacts.alt_db.shape),
+            alt_db_artifacts.alt_db_label,
+        )
 
     model = build_model(training_args, device)
     model = accelerator.prepare(model)
@@ -442,7 +479,11 @@ def main() -> int:
     )
     accelerator.wait_for_everyone()
     if accelerator.is_main_process:
-        LOGGER.info("[generate] finished total_gen=%d elapsed_sec=%.1f", int(ns.total_gen), time.time() - gen_start_time)
+        LOGGER.info(
+            "[generate] finished total_gen=%d elapsed_sec=%.1f",
+            int(ns.total_gen),
+            time.time() - gen_start_time,
+        )
 
     metrics: dict[str, object] = {
         "config": config_path,

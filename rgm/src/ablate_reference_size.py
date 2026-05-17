@@ -22,23 +22,27 @@ from pathlib import Path
 from statistics import mean
 from typing import List, Sequence
 
-import torch
-from PIL import Image
-
 import experiment_runtime as exp
 import parser as cli_parser
 import retrieval_guidance_core as poc
+import torch
+from PIL import Image
 
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def parse_args() -> argparse.Namespace:
-    return cli_parser.config_args("Reference-set size ablation for FLUX", "ablate_reference_size.py")
+    return cli_parser.config_args(
+        "Reference-set size ablation for FLUX", "ablate_reference_size.py"
+    )
+
 
 # ---------------------------------------------------------------------------
 # LPIPS Evaluation
 # ---------------------------------------------------------------------------
+
 
 def maybe_compute_lpips(image_paths: Sequence[Path], device: str):
     try:
@@ -75,9 +79,11 @@ def maybe_compute_lpips(image_paths: Sequence[Path], device: str):
         "num_pairs": len(distances),
     }
 
+
 # ---------------------------------------------------------------------------
 # Reference Construction
 # ---------------------------------------------------------------------------
+
 
 def build_or_load_full_reference(pipe, args: argparse.Namespace, out_dir: Path, device: str):
     reference_prompts = [args.target_prompt] * args.reference_size
@@ -94,15 +100,19 @@ def build_or_load_full_reference(pipe, args: argparse.Namespace, out_dir: Path, 
     latents, meta = exp.load_or_build_reference(pipe, cfg, reference_prompts, device)
     return latents, meta, reference_dir
 
+
 # ---------------------------------------------------------------------------
 # Subset Sampling
 # ---------------------------------------------------------------------------
+
 
 def effective_repeat_count(size: int, full_reference_size: int, num_subsets: int) -> int:
     return 1 if size >= full_reference_size else num_subsets
 
 
-def choose_subset_indices(full_reference_size: int, size: int, subset_seed: int, repeat_index: int) -> List[int]:
+def choose_subset_indices(
+    full_reference_size: int, size: int, subset_seed: int, repeat_index: int
+) -> List[int]:
     if size > full_reference_size:
         raise ValueError(f"subset size {size} exceeds full reference size {full_reference_size}")
     if size == full_reference_size:
@@ -116,6 +126,7 @@ def choose_subset_indices(full_reference_size: int, size: int, subset_seed: int,
 # ---------------------------------------------------------------------------
 # Generation Phase
 # ---------------------------------------------------------------------------
+
 
 def run_generation_phase(
     pipe,
@@ -170,7 +181,9 @@ def run_generation_phase(
             seeds_dir.mkdir(parents=True, exist_ok=True)
             histories_dir.mkdir(parents=True, exist_ok=True)
 
-            subset_indices = choose_subset_indices(args.reference_size, size, args.subset_seed, repeat_index)
+            subset_indices = choose_subset_indices(
+                args.reference_size, size, args.subset_seed, repeat_index
+            )
             subset_latents = full_reference_latents[subset_indices].clone()
             subset_meta = {
                 "subset_size": size,
@@ -203,7 +216,9 @@ def run_generation_phase(
                 )
                 image_path = seeds_dir / f"{sample_seed:04d}_generated.png"
                 poc.save_pil(image, str(image_path))
-                exp.save_callback_history(callback.history, histories_dir / f"{sample_seed:04d}_callback_history.txt")
+                exp.save_callback_history(
+                    callback.history, histories_dir / f"{sample_seed:04d}_callback_history.txt"
+                )
                 generated.append({"seed": sample_seed, "image_path": str(image_path)})
 
             size_summary["repeats"][repeat_slug] = {
@@ -220,6 +235,7 @@ def run_generation_phase(
 # ---------------------------------------------------------------------------
 # Evaluation Phase
 # ---------------------------------------------------------------------------
+
 
 def evaluate_image(
     image_path: Path,
@@ -268,17 +284,26 @@ def evaluate_image(
     }
 
 
-def run_evaluation_phase(manifest_path: Path, args: argparse.Namespace, out_dir: Path, device: str, dtype: torch.dtype) -> dict:
+def run_evaluation_phase(
+    manifest_path: Path, args: argparse.Namespace, out_dir: Path, device: str, dtype: torch.dtype
+) -> dict:
     overall = exp.load_json(manifest_path)
 
     # Imports are deferred until after the generation pipeline is deleted so GPU
     # memory can be reclaimed before loading CLIP and the VLM.
-    from transformers import AutoProcessor, CLIPModel, CLIPProcessor, Qwen2VLForConditionalGeneration
+    from transformers import (
+        AutoProcessor,
+        CLIPModel,
+        CLIPProcessor,
+        Qwen2VLForConditionalGeneration,
+    )
 
     clip_processor = CLIPProcessor.from_pretrained(args.clip_model_id)
     clip_model = CLIPModel.from_pretrained(args.clip_model_id).to(device)
     clip_model.eval()
-    text_inputs = clip_processor(text=[args.positive_text, args.negative_text], return_tensors="pt", padding=True)
+    text_inputs = clip_processor(
+        text=[args.positive_text, args.negative_text], return_tensors="pt", padding=True
+    )
     text_inputs = {k: v.to(device) for k, v in text_inputs.items()}
     with torch.no_grad():
         text_features = clip_model.get_text_features(**text_inputs)
@@ -356,6 +381,7 @@ def run_evaluation_phase(manifest_path: Path, args: argparse.Namespace, out_dir:
 # Aggregation
 # ---------------------------------------------------------------------------
 
+
 def aggregate_results(overall: dict) -> None:
     for size_summary in overall["sizes"].values():
         repeat_success_rates = []
@@ -387,6 +413,7 @@ def aggregate_results(overall: dict) -> None:
 # Entrypoint
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     args = parse_args()
     if args.num_subsets <= 0:
@@ -405,7 +432,9 @@ def main() -> None:
     print("output dir:", out_dir)
 
     pipe = poc.build_pipe(args.model_id, dtype=dtype, device=device)
-    full_reference_latents, full_reference_meta, reference_dir = build_or_load_full_reference(pipe, args, out_dir, device)
+    full_reference_latents, full_reference_meta, reference_dir = build_or_load_full_reference(
+        pipe, args, out_dir, device
+    )
     seeds = [args.seed + i * args.seed_stride for i in range(args.num_samples)]
     run_generation_phase(
         pipe=pipe,
@@ -424,7 +453,9 @@ def main() -> None:
     if device == "cuda":
         torch.cuda.empty_cache()
 
-    overall = run_evaluation_phase(out_dir / "generation_manifest.json", args, out_dir, device, dtype)
+    overall = run_evaluation_phase(
+        out_dir / "generation_manifest.json", args, out_dir, device, dtype
+    )
     aggregate_results(overall)
     overall.update(
         {

@@ -15,12 +15,12 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-
 import parser as cli_parser
 
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def parse_args() -> argparse.Namespace:
     parser = cli_parser.argument_parser("Plot beta schedules as a function of time")
@@ -39,9 +39,11 @@ def parse_args() -> argparse.Namespace:
     )
     return parser.parse_args()
 
+
 # ---------------------------------------------------------------------------
 # Schedules
 # ---------------------------------------------------------------------------
+
 
 def constant_schedule(beta0: float, t: np.ndarray) -> np.ndarray:
     return beta0 * np.ones_like(t)
@@ -54,9 +56,11 @@ def bell_schedule(beta0: float, t: np.ndarray) -> np.ndarray:
 def quadratic_decay_schedule(beta0: float, t: np.ndarray) -> np.ndarray:
     return beta0 * (1.0 - t) ** 2
 
+
 # ---------------------------------------------------------------------------
 # Plotting
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     args = parse_args()

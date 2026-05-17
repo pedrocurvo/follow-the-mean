@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import math
 import os
 import random
 from pathlib import Path
@@ -13,12 +12,13 @@ import torch
 from PIL import Image
 from torchvision.transforms.functional import pil_to_tensor
 
-
 LOGGER = logging.getLogger("lpips_metrics")
 
 
 def parse_args() -> argparse.Namespace:
-    ap = argparse.ArgumentParser(description="Compute LPIPS diversity over a folder of generated images.")
+    ap = argparse.ArgumentParser(
+        description="Compute LPIPS diversity over a folder of generated images."
+    )
     ap.add_argument("--image_dir", required=True)
     ap.add_argument("--output_json", required=True)
     ap.add_argument("--seed", type=int, default=1234)
@@ -90,7 +90,9 @@ def main() -> int:
     images, image_paths = _load_images(image_dir)
     num_images = int(images.shape[0])
     pairs = _sample_pairs(num_images, int(ns.max_pairs), int(ns.seed))
-    LOGGER.info("[lpips] image_dir=%s num_images=%d num_pairs=%d", image_dir, num_images, len(pairs))
+    LOGGER.info(
+        "[lpips] image_dir=%s num_images=%d num_pairs=%d", image_dir, num_images, len(pairs)
+    )
 
     try:
         from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity

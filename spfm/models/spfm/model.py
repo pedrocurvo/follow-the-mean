@@ -16,21 +16,20 @@ Flow overview:
 
 import math
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from entmax import entmax15
 from timm.models.vision_transformer import Mlp, PatchEmbed
-from models.pos_embed import VisionRotaryEmbeddingFast
+
 from models.adaln import AdaLN, modulate
 from models.refiner.model import LatentRefiner as SharedLatentRefiner
 from models.time_embed import TimestepEmbedder
 
-
 # ---------------------------------------------------------------------------
 # Cross Attention
 # ---------------------------------------------------------------------------
+
 
 class CrossAttention(nn.Module):
     def __init__(
@@ -99,7 +98,9 @@ class CrossAttention(nn.Module):
                 keep_chunk = (~mask_chunk)[:, None, None, :]
                 logits = logits.masked_fill(mask_chunk[:, None, None, :], float("-inf"))
             chunk_max = logits.amax(dim=-1)
-            chunk_max = torch.where(torch.isfinite(chunk_max), chunk_max, torch.full_like(chunk_max, -1e30))
+            chunk_max = torch.where(
+                torch.isfinite(chunk_max), chunk_max, torch.full_like(chunk_max, -1e30)
+            )
             if running_max is None:
                 running_max = chunk_max
                 logits_exp = torch.exp(logits - running_max.unsqueeze(-1))
@@ -114,7 +115,9 @@ class CrossAttention(nn.Module):
             if keep_chunk is not None:
                 logits_exp = logits_exp * keep_chunk
             running_den = running_den * prev_scale + logits_exp.sum(dim=-1)
-            running_num = running_num * prev_scale.unsqueeze(-1) + torch.einsum("bnhm,mnhd->bnhd", logits_exp, v_chunk)
+            running_num = running_num * prev_scale.unsqueeze(-1) + torch.einsum(
+                "bnhm,mnhd->bnhd", logits_exp, v_chunk
+            )
             running_max = new_max
         mu = running_num / running_den.clamp_min(1e-12).unsqueeze(-1)
         return mu.reshape(bsz, num_tokens, self.value_dim).to(dtype=out_dtype)
@@ -148,7 +151,9 @@ class CrossAttention(nn.Module):
                 keep_chunk = (~mask_chunk)[:, None, None, :]
                 logits = logits.masked_fill(mask_chunk[:, None, None, :], float("-inf"))
             chunk_max = logits.amax(dim=-1)
-            chunk_max = torch.where(torch.isfinite(chunk_max), chunk_max, torch.full_like(chunk_max, -1e30))
+            chunk_max = torch.where(
+                torch.isfinite(chunk_max), chunk_max, torch.full_like(chunk_max, -1e30)
+            )
             if running_max is None:
                 running_max = chunk_max
                 logits_exp = torch.exp(logits - running_max.unsqueeze(-1))
@@ -163,7 +168,9 @@ class CrossAttention(nn.Module):
             if keep_chunk is not None:
                 logits_exp = logits_exp * keep_chunk
             running_den = running_den * prev_scale + logits_exp.sum(dim=-1)
-            running_num = running_num * prev_scale.unsqueeze(-1) + torch.einsum("bnhs,shd->bnhd", logits_exp, v_chunk)
+            running_num = running_num * prev_scale.unsqueeze(-1) + torch.einsum(
+                "bnhs,shd->bnhd", logits_exp, v_chunk
+            )
             running_max = new_max
         mu = running_num / running_den.clamp_min(1e-12).unsqueeze(-1)
         return mu.reshape(bsz, num_tokens, self.value_dim).to(dtype=out_dtype)
@@ -175,7 +182,7 @@ class CrossAttention(nn.Module):
         v_all: torch.Tensor,
         db_mask: torch.Tensor | None = None,
         attn_bias: torch.Tensor | None = None,
-        rope = None,
+        rope=None,
     ) -> torch.Tensor:
         # q: (B, N, D), k_all/v_all: (M, N, D)
         q = self.q_proj(q)
@@ -213,17 +220,25 @@ class CrossAttention(nn.Module):
                 if attn_bias.shape[1] == m:
                     attn_bias_same_patch = attn_bias[:, None, :].expand(-1, num_tokens, -1)
                 elif attn_bias.shape[1] == m * num_tokens:
-                    attn_bias_same_patch = attn_bias.view(bsz, m, num_tokens).permute(0, 2, 1).contiguous()
+                    attn_bias_same_patch = (
+                        attn_bias.view(bsz, m, num_tokens).permute(0, 2, 1).contiguous()
+                    )
                 else:
-                    raise ValueError("attn_bias must have shape [B, M] or [B, M*N] when same_patch_index_only=True")
+                    raise ValueError(
+                        "attn_bias must have shape [B, M] or [B, M*N] when same_patch_index_only=True"
+                    )
                 attn_bias_global = None
             else:
                 if attn_bias.shape[1] == m:
-                    attn_bias_global = attn_bias[:, :, None].expand(-1, -1, num_tokens).reshape(bsz, total_tokens)
+                    attn_bias_global = (
+                        attn_bias[:, :, None].expand(-1, -1, num_tokens).reshape(bsz, total_tokens)
+                    )
                 elif attn_bias.shape[1] == total_tokens:
                     attn_bias_global = attn_bias
                 else:
-                    raise ValueError("attn_bias must have shape [B, M] or [B, M*N] when same_patch_index_only=False")
+                    raise ValueError(
+                        "attn_bias must have shape [B, M] or [B, M*N] when same_patch_index_only=False"
+                    )
                 attn_bias_same_patch = None
         else:
             attn_bias_same_patch = None
@@ -284,7 +299,9 @@ class CrossAttention(nn.Module):
             return mu.to(dtype=q.dtype)
 
         if self.same_patch_index_only:
-            q_sdpa = q.permute(0, 1, 2, 3).reshape(bsz * num_tokens, self.num_heads, 1, self.head_dim_qk)
+            q_sdpa = q.permute(0, 1, 2, 3).reshape(
+                bsz * num_tokens, self.num_heads, 1, self.head_dim_qk
+            )
             k_sdpa = (
                 k_all.permute(1, 2, 0, 3)
                 .unsqueeze(0)
@@ -300,7 +317,9 @@ class CrossAttention(nn.Module):
             attn_mask = None
             if db_mask is not None:
                 # SDPA bool mask uses True for allowed positions.
-                keep = (~db_mask).unsqueeze(1).expand(-1, num_tokens, -1).reshape(bsz * num_tokens, m)
+                keep = (
+                    (~db_mask).unsqueeze(1).expand(-1, num_tokens, -1).reshape(bsz * num_tokens, m)
+                )
                 attn_mask = keep.unsqueeze(1).unsqueeze(1)
             mu = F.scaled_dot_product_attention(
                 q_sdpa,
@@ -335,6 +354,7 @@ class CrossAttention(nn.Module):
 # Cross-Attention Block
 # ---------------------------------------------------------------------------
 
+
 class CrossAttnBlock(nn.Module):
     def __init__(
         self,
@@ -362,7 +382,9 @@ class CrossAttnBlock(nn.Module):
         )
         self.norm2 = nn.RMSNorm(hidden_size, eps=1e-6, elementwise_affine=False)
         mlp_hidden_dim = int(hidden_size * mlp_ratio)
-        self.mlp = Mlp(in_features=hidden_size, hidden_features=mlp_hidden_dim, act_layer=nn.GELU, drop=0)
+        self.mlp = Mlp(
+            in_features=hidden_size, hidden_features=mlp_hidden_dim, act_layer=nn.GELU, drop=0
+        )
         self.adaLN_modulation = nn.Sequential(
             nn.SiLU(),
             nn.Linear(hidden_size, 2 * hidden_size, bias=True),
@@ -376,7 +398,7 @@ class CrossAttnBlock(nn.Module):
         v_all: torch.Tensor,
         db_mask: torch.Tensor | None = None,
         attn_bias: torch.Tensor | None = None,
-        rope = None,
+        rope=None,
     ) -> torch.Tensor:
         shift_msa, scale_msa = self.adaLN_modulation(c).chunk(2, dim=1)
         attn_out = self.attn(
@@ -393,6 +415,7 @@ class CrossAttnBlock(nn.Module):
 # ---------------------------------------------------------------------------
 # SPFM Model
 # ---------------------------------------------------------------------------
+
 
 class LearnedPosteriorMean(nn.Module):
     """Patchwise retrieval model with AdaLN-conditioned queries."""
@@ -430,7 +453,9 @@ class LearnedPosteriorMean(nn.Module):
         super().__init__()
         latent_dim = latent_c * latent_h * latent_w
         if (not cross_patchwise) and embed_dim != latent_dim:
-            raise ValueError(f"embed_dim must equal latent_c*latent_h*latent_w ({latent_dim}) for single-token mode")
+            raise ValueError(
+                f"embed_dim must equal latent_c*latent_h*latent_w ({latent_dim}) for single-token mode"
+            )
         if qk_dim <= 0:
             raise ValueError("qk_dim must be > 0")
 
@@ -462,7 +487,9 @@ class LearnedPosteriorMean(nn.Module):
             raise ValueError("Only entmax alpha=1.5 is currently supported")
         if self.cross_patchwise:
             if latent_h % cross_patch_size != 0 or latent_w % cross_patch_size != 0:
-                raise ValueError("latent_h/latent_w must be divisible by cross_patch_size when cross_patchwise=True")
+                raise ValueError(
+                    "latent_h/latent_w must be divisible by cross_patch_size when cross_patchwise=True"
+                )
             if cross_decouple_embed and depth != 1:
                 raise ValueError("cross_decouple_embed currently supports depth=1 only")
             self.cross_grid_h = latent_h // cross_patch_size
@@ -562,21 +589,27 @@ class LearnedPosteriorMean(nn.Module):
             self.v_adaln = None
 
         # Final projection back to latent vector
-        cross_value_dim = self.cross_patch_dim if (self.cross_patchwise and self.cross_decouple_embed) else embed_dim
-        self.blocks = nn.ModuleList([
-            CrossAttnBlock(
-                embed_dim,
-                qk_dim=qk_dim,
-                num_heads=num_heads,
-                value_dim=cross_value_dim,
-                mlp_ratio=mlp_ratio,
-                same_patch_index_only=cross_patchwise,
-                use_entmax=cross_use_entmax,
-                entmax_alpha=cross_entmax_alpha,
-                chunk_size=self.cross_attn_chunk_size,
-            )
-            for _ in range(depth)
-        ])
+        cross_value_dim = (
+            self.cross_patch_dim
+            if (self.cross_patchwise and self.cross_decouple_embed)
+            else embed_dim
+        )
+        self.blocks = nn.ModuleList(
+            [
+                CrossAttnBlock(
+                    embed_dim,
+                    qk_dim=qk_dim,
+                    num_heads=num_heads,
+                    value_dim=cross_value_dim,
+                    mlp_ratio=mlp_ratio,
+                    same_patch_index_only=cross_patchwise,
+                    use_entmax=cross_use_entmax,
+                    entmax_alpha=cross_entmax_alpha,
+                    chunk_size=self.cross_attn_chunk_size,
+                )
+                for _ in range(depth)
+            ]
+        )
         if self.cross_kv_freeze:
             self.frozen_cross_kv_names = tuple(self._freeze_cross_kv_projections())
         self.initialize_weights()
@@ -656,6 +689,7 @@ class LearnedPosteriorMean(nn.Module):
                 nn.init.xavier_uniform_(module.weight)
                 if module.bias is not None:
                     nn.init.constant_(module.bias, 0)
+
         self.apply(_basic_init)
 
         # Initialize timestep embedding MLP.
@@ -671,7 +705,9 @@ class LearnedPosteriorMean(nn.Module):
             nn.init.constant_(self.g_gate_mlp[-1].bias, self._inv_sigmoid(self.learned_g_init))
         if self.learned_alpha:
             nn.init.constant_(self.alpha_gate_mlp[-1].weight, 0)
-            nn.init.constant_(self.alpha_gate_mlp[-1].bias, self._inv_sigmoid(self.learned_alpha_init))
+            nn.init.constant_(
+                self.alpha_gate_mlp[-1].bias, self._inv_sigmoid(self.learned_alpha_init)
+            )
 
     def _apply_db_dropout(
         self,
@@ -712,7 +748,11 @@ class LearnedPosteriorMean(nn.Module):
 
         if db_mask is None or db_mask.shape == (batch_size, num_db):
             return combined_img_mask
-        drop_mask_flat = drop_mask[:, :, None].expand(-1, -1, num_tokens).reshape(batch_size, num_db * num_tokens)
+        drop_mask_flat = (
+            drop_mask[:, :, None]
+            .expand(-1, -1, num_tokens)
+            .reshape(batch_size, num_db * num_tokens)
+        )
         return db_mask | drop_mask_flat
 
     # ----------------------------

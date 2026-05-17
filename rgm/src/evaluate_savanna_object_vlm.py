@@ -14,13 +14,11 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+import experiment_runtime as exp
+import parser as cli_parser
 import torch
 from PIL import Image
 from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
-
-import experiment_runtime as exp
-import parser as cli_parser
-
 
 QUESTION = (
     "Which animal does the main animal in this image most resemble: zebra or giraffe? "
@@ -30,6 +28,7 @@ QUESTION = (
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def parse_args() -> argparse.Namespace:
     parser = cli_parser.argument_parser("VLM zebra/giraffe classification for savanna-object sweep")
@@ -54,9 +53,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-new-tokens", type=int, default=8)
     return parser.parse_args()
 
+
 # ---------------------------------------------------------------------------
 # VLM Evaluation
 # ---------------------------------------------------------------------------
+
 
 def normalize_answer(text: str) -> str:
     lowered = text.strip().lower()
@@ -68,9 +69,11 @@ def normalize_answer(text: str) -> str:
         return "giraffe"
     return "unknown"
 
+
 # ---------------------------------------------------------------------------
 # Entrypoint
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     args = parse_args()
@@ -118,7 +121,9 @@ def main() -> None:
             seed = int(seed_str)
             with Image.open(image_path) as image:
                 image = image.convert("RGB")
-                raw_answer = exp.generate_vlm_answer(model, processor, image, QUESTION, device, args.max_new_tokens)
+                raw_answer = exp.generate_vlm_answer(
+                    model, processor, image, QUESTION, device, args.max_new_tokens
+                )
 
             answer = normalize_answer(raw_answer)
             zebra = 1 if answer == "zebra" else 0
@@ -130,14 +135,16 @@ def main() -> None:
             else:
                 unknown_count += 1
 
-            rows.append({
-                "seed": seed,
-                "image_path": str(image_path),
-                "raw_answer": raw_answer,
-                "prediction": answer,
-                "zebra": zebra,
-                "giraffe": giraffe,
-            })
+            rows.append(
+                {
+                    "seed": seed,
+                    "image_path": str(image_path),
+                    "raw_answer": raw_answer,
+                    "prediction": answer,
+                    "zebra": zebra,
+                    "giraffe": giraffe,
+                }
+            )
 
         total = len(image_paths)
         mix_summary = {
@@ -153,7 +160,9 @@ def main() -> None:
         experiment_summary["mixes"][mix_dir.name] = mix_summary
         exp.save_json(mix_summary, mix_dir / "vlm_summary.json")
 
-    out_json = Path(args.out_json) if args.out_json else input_dir / "savanna_object_vlm_summary.json"
+    out_json = (
+        Path(args.out_json) if args.out_json else input_dir / "savanna_object_vlm_summary.json"
+    )
     exp.save_json(experiment_summary, out_json)
 
 

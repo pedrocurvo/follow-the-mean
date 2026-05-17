@@ -18,16 +18,16 @@ import csv
 from pathlib import Path
 from typing import List
 
+import experiment_runtime as exp
+import parser as cli_parser
 import torch
 from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
 
-import experiment_runtime as exp
-import parser as cli_parser
-
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def parse_args() -> argparse.Namespace:
     parser = cli_parser.argument_parser("CLIP scoring for prompt-reference interaction outputs")
@@ -69,9 +69,11 @@ def parse_args() -> argparse.Namespace:
     )
     return parser.parse_args()
 
+
 # ---------------------------------------------------------------------------
 # Case Discovery
 # ---------------------------------------------------------------------------
+
 
 def load_cases(input_dir: Path) -> List[dict]:
     cases = []
@@ -112,9 +114,11 @@ def load_cases(input_dir: Path) -> List[dict]:
         )
     return cases
 
+
 # ---------------------------------------------------------------------------
 # CLIP Evaluation
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     args = parse_args()
