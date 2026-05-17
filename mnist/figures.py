@@ -19,6 +19,10 @@ from sklearn.neighbors import KNeighborsClassifier
 from torchvision import datasets, transforms
 
 
+# ---------------------------------------------------------------------------
+# Plot Style
+# ---------------------------------------------------------------------------
+
 plt.rcParams.update(
     {
         "figure.dpi": 150,
@@ -42,6 +46,10 @@ plt.rcParams.update(
     }
 )
 
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
 C_PURPLE = "#7a1fa2"
 C_RED = "#d1495b"
 C_GREEN = "#0b6e4f"
@@ -50,6 +58,10 @@ C_ORANGE = "#c06c00"
 C_TEAL = "#1f7a8c"
 C_LIME = "#2f9e44"
 C_GRAY = "#6c757d"
+
+# ---------------------------------------------------------------------------
+# Cache Helpers
+# ---------------------------------------------------------------------------
 
 
 def _load_steerability_cache(
@@ -145,6 +157,10 @@ def _render_steerability_plot(
     plt.close(fig)
 
 
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate MNIST paper figures for closed-form semi-supervised flow matching."
@@ -228,6 +244,10 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+# ---------------------------------------------------------------------------
+# Runtime Utilities
+# ---------------------------------------------------------------------------
+
 def pick_device(device_arg: str) -> torch.device:
     if device_arg == "cpu":
         return torch.device("cpu")
@@ -240,6 +260,10 @@ def set_seed(seed: int) -> None:
     torch.manual_seed(seed)
     np.random.seed(seed)
 
+
+# ---------------------------------------------------------------------------
+# Flow Kernels And Posteriors
+# ---------------------------------------------------------------------------
 
 def sigma_t(t: torch.Tensor | float, sigma_min: float = 1e-4) -> torch.Tensor | float:
     return (1 - t) + sigma_min
@@ -341,6 +365,10 @@ def unconditional_velocity(
     return (mu - z) / (1 - t + t_eps)
 
 
+# ---------------------------------------------------------------------------
+# Data Selection
+# ---------------------------------------------------------------------------
+
 def select_labeled(
     X: torch.Tensor, y: torch.Tensor, M: int, seed: int = 0
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -359,6 +387,10 @@ def select_labeled(
     unlabeled_mask[labeled_idx_t] = False
     return X[labeled_idx_t], y[labeled_idx_t], X[unlabeled_mask], y[unlabeled_mask]
 
+
+# ---------------------------------------------------------------------------
+# Sampling
+# ---------------------------------------------------------------------------
 
 @torch.no_grad()
 def generate_unconditional(
@@ -410,6 +442,10 @@ def generate_samples(
 
     return torch.stack(trajectories)
 
+
+# ---------------------------------------------------------------------------
+# Data Loading And Plot Helpers
+# ---------------------------------------------------------------------------
 
 def save_mnist_grid(
     samples: torch.Tensor,
@@ -466,6 +502,10 @@ def load_mnist_binary_subset(
     X = (X - mean_vec) / std_vec
     return X, y, mean_vec, std_vec
 
+
+# ---------------------------------------------------------------------------
+# Figure Builders
+# ---------------------------------------------------------------------------
 
 def plot_accuracy_vs_t(
     X: torch.Tensor,
@@ -639,6 +679,10 @@ def plot_steerability_vs_m(
 
     _render_steerability_plot(m_values, steer_means, steer_stds, uncond_accs, hard_accs, output_path)
 
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 
 def main() -> int:
     args = parse_args()

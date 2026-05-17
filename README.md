@@ -1,7 +1,7 @@
 <h2 align="center">Reference-Guided Flow Matching</h2>
 
 <p align="center">
-  <img src="moons/images/fig3_flow.png" alt="Reference-guided flow fields on two moons" width="680">
+  <img src="assets/follow-the-mean.gif" alt="Follow the Mean reference-guided generation" width="680">
 </p>
 
 <p align="center">

@@ -24,7 +24,10 @@ from sklearn.datasets import make_moons
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import MinMaxScaler
 
-# Global plotting style.
+# ---------------------------------------------------------------------------
+# Plot Style
+# ---------------------------------------------------------------------------
+
 plt.rcParams.update({
     'figure.dpi': 150,
     'font.family': 'sans-serif',
@@ -46,7 +49,10 @@ plt.rcParams.update({
     'legend.handlelength': 1.6,
 })
 
-# Color palette.
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
 C_PURPLE = '#7a1fa2'
 C_RED    = '#d1495b'
 C_GREEN  = '#0b6e4f'
@@ -67,6 +73,10 @@ moon_cmap = LinearSegmentedColormap.from_list(
 # Paper plot palette for M curves
 M_COLORS = [C_PURPLE, C_RED, C_GREEN, C_BLUE]
 
+# ---------------------------------------------------------------------------
+# Output Paths
+# ---------------------------------------------------------------------------
+
 OUTPUT_DIR = Path(__file__).resolve().parent / 'images'
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 FIG1_PANEL_DIR = OUTPUT_DIR / 'fig1_posteriors_panels'
@@ -76,7 +86,10 @@ FIG2_PANEL_DIR.mkdir(parents=True, exist_ok=True)
 FIG3_PANEL_DIR = OUTPUT_DIR / 'fig3_flow_panels'
 FIG3_PANEL_DIR.mkdir(parents=True, exist_ok=True)
 
-# Synthetic two-moons data.
+# ---------------------------------------------------------------------------
+# Synthetic Data
+# ---------------------------------------------------------------------------
+
 SEED = 7
 N    = 500
 
@@ -96,14 +109,20 @@ y_min, y_max = X[:, 1].min() - 0.35, X[:, 1].max() + 0.35
 knn = KNeighborsClassifier(n_neighbors=15)
 knn.fit(X, y)
 
+
 def frac1(samples):
     return knn.predict(samples).mean()
 
-# Time-dependent kernel and sparse-label posteriors.
+# ---------------------------------------------------------------------------
+# Time Kernel And Sparse-Label Posteriors
+# ---------------------------------------------------------------------------
+
 SIGMA_MIN, SIGMA_MAX = 0.08, 1.25
+
 
 def sigma_t(t):
     return SIGMA_MAX * (1. - t) + SIGMA_MIN * t
+
 
 def soft_posteriors(X_query, refs0, refs1, t):
     s = sigma_t(t)
@@ -116,6 +135,7 @@ def soft_posteriors(X_query, refs0, refs1, t):
     p = np.exp(z); p /= p.sum(1, keepdims=True)
     return p
 
+
 def posterior_grid(refs0, refs1, t, n=260):
     gx = np.linspace(x_min, x_max, n)
     gy = np.linspace(y_min, y_max, n)
@@ -124,7 +144,10 @@ def posterior_grid(refs0, refs1, t, n=260):
     P = soft_posteriors(G, refs0, refs1, t)[:, 1].reshape(n, n)
     return XX, YY, P
 
-# Database sampling and conditional generation helpers.
+# ---------------------------------------------------------------------------
+# Database Sampling And Conditional Generation
+# ---------------------------------------------------------------------------
+
 def sample_refs(M, seed=0):
     rr = np.random.default_rng(seed)
     return rr.choice(idx0, M, replace=False), rr.choice(idx1, M, replace=False)
@@ -162,6 +185,7 @@ def gen_hard(db_idx, target=1, n=400, seed=0):
     if not len(keep): keep = np.arange(len(db_idx))
     return sample_db(X[db_idx[keep]], np.ones(len(keep)), n, seed)
 
+
 def gen_db_comp(db_idx, r0, r1, n=400, seed=0, t=0.92):
     rr = np.random.default_rng(seed)
     post = soft_posteriors(X[db_idx], r0, r1, t)
@@ -174,7 +198,10 @@ def gen_db_comp(db_idx, r0, r1, n=400, seed=0, t=0.92):
         out.append(X[db_idx[i]] + rr.normal(scale=0.06, size=2))
     return np.array(out)
 
-# Closed-form velocity field and trajectory integration.
+# ---------------------------------------------------------------------------
+# Velocity Field And Trajectory Integration
+# ---------------------------------------------------------------------------
+
 def velocity_field(z, db_idx, r0, r1, t, eps=1e-3):
     z = np.asarray(z)
     Xdb = X[db_idx]
@@ -200,7 +227,10 @@ def integrate(x0, db_idx, r0, r1, n_steps=60):
         traj.append(x.copy())
     return ts, np.stack(traj)
 
-# Shared plotting helpers.
+# ---------------------------------------------------------------------------
+# Plot Helpers
+# ---------------------------------------------------------------------------
+
 def clean_ax(ax):
     ax.set_xlim(x_min, x_max); ax.set_ylim(y_min, y_max)
     ax.set_xticks([]); ax.set_yticks([])
@@ -223,6 +253,9 @@ def save_single_panel(fig, ax, output_path):
     fig.savefig(output_path, bbox_inches=bbox)
 
 
+# ---------------------------------------------------------------------------
+# Figure 1: Label Posteriors Over Time
+# ---------------------------------------------------------------------------
 
 refs0_5, refs1_5 = sample_refs(5, seed=SEED + 11)
 t_vals = [0.02, 0.25, 0.55, 0.92]
@@ -275,6 +308,10 @@ for ax, t in zip(axes, t_vals):
 plt.close(fig)
 print("[moons/figures] saved fig1_posteriors.pdf")
 
+
+# ---------------------------------------------------------------------------
+# Figure 2: Unconditional, Soft-Label, And Hard-Filter Generation
+# ---------------------------------------------------------------------------
 
 db_bal = make_db(0.5, seed=SEED + 21)
 g_unc  = gen_uncond(db_bal, seed=SEED + 31)
@@ -330,6 +367,10 @@ for output_name, ax in [
 plt.close(fig)
 print("[moons/figures] saved fig2_conditions.pdf")
 
+
+# ---------------------------------------------------------------------------
+# Figure 3: Flow Fields And Trajectories
+# ---------------------------------------------------------------------------
 
 refs0_v, refs1_v = sample_refs(5, seed=SEED + 111)
 db_min = make_db(0.15, seed=SEED + 121)
@@ -404,6 +445,10 @@ plt.close(fig)
 print("[moons/figures] saved fig3_flow.pdf")
 
 
+# ---------------------------------------------------------------------------
+# Figure 4: Database Composition Sweep
+# ---------------------------------------------------------------------------
+
 fracs   = np.linspace(0., 1., 11)
 M_list  = [1, 3, 5, 10]
 n_trials = 8
@@ -459,6 +504,10 @@ plt.savefig(OUTPUT_DIR / 'fig4_db_composition.png', dpi=200, bbox_inches='tight'
 plt.close(fig)
 print("[moons/figures] saved fig4_db_composition.pdf")
 
+
+# ---------------------------------------------------------------------------
+# Figure 5: Reference-Count Ablation
+# ---------------------------------------------------------------------------
 
 M_grid    = [1, 2, 3, 5, 7, 10, 15, 20]
 frac_tgt  = 0.70
