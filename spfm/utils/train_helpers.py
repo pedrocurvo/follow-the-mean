@@ -19,6 +19,10 @@ from torchvision import transforms as TVT
 from torchvision.utils import make_grid, save_image
 from tqdm.auto import tqdm
 
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
 DEFAULT_IMAGE_SIZE = 256
 DEFAULT_INVAE_LATENT_C = 32
 DEFAULT_INVAE_LATENT_DOWNSAMPLE = 16
@@ -26,6 +30,11 @@ DEFAULT_INVAE_SCALING = 0.3099
 DEFAULT_SD_SCALING = 0.18215
 
 logger = get_logger(__name__)
+
+# ---------------------------------------------------------------------------
+# Raw VAE Adapter
+# ---------------------------------------------------------------------------
+
 class _RawPosterior:
     def __init__(self, sample: torch.Tensor):
         self._sample = sample
@@ -53,6 +62,10 @@ class RawVAE(torch.nn.Module):
     def decode(self, z: torch.Tensor):
         return _RawDecoderOut(z)
 
+
+# ---------------------------------------------------------------------------
+# Filesystem And Distributed Helpers
+# ---------------------------------------------------------------------------
 
 def ensure_dir(p: str):
     os.makedirs(p, exist_ok=True)
@@ -87,6 +100,10 @@ def update_ema(ema_model, model, decay=0.9999):
         ema_params[name].mul_(decay).add_(param.data, alpha=1 - decay)
 
 
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+
 def create_logger(logging_dir):
     """
     Create a logger that writes to a log file and stdout.
@@ -99,6 +116,10 @@ def create_logger(logging_dir):
     )
     return logging.getLogger(__name__)
 
+
+# ---------------------------------------------------------------------------
+# VAE Helpers
+# ---------------------------------------------------------------------------
 
 def _extract_latent_sample(posterior):
     if hasattr(posterior, "latent_dist"):
@@ -165,9 +186,9 @@ def vae_decode(vae, z: torch.Tensor) -> torch.Tensor:
     return ((x + 1.0) * 0.5).clamp(0, 1)
 
 
-# ----------------------------
+# ---------------------------------------------------------------------------
 # Data loader (CIFAR-10 -> image_size)
-# ----------------------------
+# ---------------------------------------------------------------------------
 
 def _apply_label_filter(ds, label_field: str | None, label_value: str | None):
     if label_field is None or label_value is None:
@@ -429,9 +450,9 @@ def get_filtered_label_counts(
     return total, counts
 
 
-# ----------------------------
-# Build / load latent DB
-# ----------------------------
+# ---------------------------------------------------------------------------
+# Latent Database Building
+# ---------------------------------------------------------------------------
 
 def build_or_load_db(
     loader: DataLoader,
@@ -546,12 +567,11 @@ def build_or_load_db(
     return X, idxs
 
 
-# ----------------------------
-# Sampling
-# ----------------------------
+# ---------------------------------------------------------------------------
+# Closed-Form Sampling
+# ---------------------------------------------------------------------------
 
 @torch.no_grad()
-
 def sample_closedform(
     Xdb: torch.Tensor,
     model: LearnedPosteriorMean,
@@ -649,8 +669,11 @@ def sample_closedform(
     return imgs
 
 
-@torch.no_grad()
+# ---------------------------------------------------------------------------
+# Image Generation And Decoding
+# ---------------------------------------------------------------------------
 
+@torch.no_grad()
 def generate_images_to_dir(
     Xdb: torch.Tensor,
     model: LearnedPosteriorMean,
@@ -718,7 +741,6 @@ def generate_images_to_dir(
 
 
 @torch.no_grad()
-
 def decode_latents(vae, z: torch.Tensor, decode_batch: int) -> torch.Tensor:
     imgs = []
     for s in range(0, z.shape[0], decode_batch):
@@ -726,8 +748,11 @@ def decode_latents(vae, z: torch.Tensor, decode_batch: int) -> torch.Tensor:
     return torch.cat(imgs, dim=0)
 
 
-@torch.no_grad()
+# ---------------------------------------------------------------------------
+# Nearest Neighbors
+# ---------------------------------------------------------------------------
 
+@torch.no_grad()
 def nearest_neighbors(queries: torch.Tensor, db: torch.Tensor, chunk: int):
     device = queries.device
     if queries.ndim > 2:
@@ -752,6 +777,10 @@ def nearest_neighbors(queries: torch.Tensor, db: torch.Tensor, chunk: int):
 
     return best_idx, best_dist
 
+
+# ---------------------------------------------------------------------------
+# Projection Rollouts
+# ---------------------------------------------------------------------------
 
 @torch.no_grad()
 def project_mu_cross_to_close_plane(
@@ -865,6 +894,10 @@ def sample_proj_close_rollout_grid(
     two_row = torch.cat([mu_proj_imgs, mu_imgs], dim=0)
     return make_grid(two_row, nrow=steps)
 
+
+# ---------------------------------------------------------------------------
+# Feature Encoders
+# ---------------------------------------------------------------------------
 
 @torch.no_grad()
 def nearest_neighbors_chunked_features(

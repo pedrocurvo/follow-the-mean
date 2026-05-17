@@ -21,8 +21,8 @@ env/
 *.swo
 
 # Logs and scheduler output
-batch.sh
-**/batch.sh
+batch*.sh
+**/batch*.sh
 logs/
 **/logs/
 slurm-*.out

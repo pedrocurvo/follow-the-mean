@@ -10,6 +10,10 @@ from pathlib import Path
 import yaml
 
 
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
 BOOL_VALUE_KEYS = {
     "pin_memory",
     "persistent_workers",
@@ -31,6 +35,10 @@ LAUNCH_ONLY_KEYS = {
     "accelerate_multi_gpu",
 }
 
+
+# ---------------------------------------------------------------------------
+# Config Flattening
+# ---------------------------------------------------------------------------
 
 def _to_cli_args(cfg: dict) -> list[str]:
     args: list[str] = []
@@ -114,6 +122,10 @@ def _merge_train_cfg(train_cfg: dict) -> dict:
     return merged
 
 
+# ---------------------------------------------------------------------------
+# Launch Config
+# ---------------------------------------------------------------------------
+
 def _parse_bool_like(value) -> bool:
     if isinstance(value, bool):
         return value
@@ -141,6 +153,10 @@ def _extract_launch_cfg(flat_cfg: dict) -> tuple[dict, dict]:
     }
     return cfg, launch_cfg
 
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Run train.py from an experiments YAML config.")

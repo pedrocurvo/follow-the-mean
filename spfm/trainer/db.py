@@ -19,8 +19,16 @@ from utils.train_helpers import (
     make_loader,
 )
 
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
 logger = get_logger(__name__)
 
+
+# ---------------------------------------------------------------------------
+# Artifact Containers
+# ---------------------------------------------------------------------------
 
 @dataclass
 class PrimaryDBArtifacts:
@@ -38,6 +46,10 @@ class AltDBArtifacts:
     alt_db_group_ids: torch.Tensor | None
     alt_db_label: str | None
 
+
+# ---------------------------------------------------------------------------
+# Training Loader
+# ---------------------------------------------------------------------------
 
 def build_train_latent_loader(
     *,
@@ -72,6 +84,10 @@ def build_train_latent_loader(
             loader_kwargs["prefetch_factor"] = int(prefetch_factor)
     return DataLoader(dataset, **loader_kwargs)
 
+
+# ---------------------------------------------------------------------------
+# DB Spec Helpers
+# ---------------------------------------------------------------------------
 
 def _normalize_db_spec(spec: str | None) -> str | None:
     if spec is None:
@@ -150,6 +166,10 @@ def build_db_group_ids_from_indices(
         group_ids.append(mapping[key])
     return torch.tensor(group_ids, device=device, dtype=torch.long)
 
+
+# ---------------------------------------------------------------------------
+# Primary Database
+# ---------------------------------------------------------------------------
 
 def _compute_primary_db_flags(args) -> tuple[bool, bool]:
     need_group_ids = False
@@ -270,6 +290,10 @@ def build_primary_db(
         use_db_indices=use_db_indices,
     )
 
+
+# ---------------------------------------------------------------------------
+# Alternate Database
+# ---------------------------------------------------------------------------
 
 def build_alt_db(
     args,

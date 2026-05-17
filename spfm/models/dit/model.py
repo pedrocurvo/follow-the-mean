@@ -6,9 +6,17 @@ from timm.models.vision_transformer import Attention, Mlp, PatchEmbed
 from models.time_embed import TimestepEmbedder
 
 
+# ---------------------------------------------------------------------------
+# AdaLN Helpers
+# ---------------------------------------------------------------------------
+
 def modulate(x: torch.Tensor, shift: torch.Tensor, scale: torch.Tensor) -> torch.Tensor:
     return x * (1 + scale.unsqueeze(1)) + shift.unsqueeze(1)
 
+
+# ---------------------------------------------------------------------------
+# DiT Blocks
+# ---------------------------------------------------------------------------
 
 class DiTBlock(nn.Module):
     def __init__(self, hidden_size: int, num_heads: int, mlp_ratio: float = 4.0):
@@ -53,6 +61,10 @@ class FinalLayer(nn.Module):
         x = modulate(self.norm_final(x), shift, scale)
         return self.linear(x)
 
+
+# ---------------------------------------------------------------------------
+# DiT Model
+# ---------------------------------------------------------------------------
 
 class LearnedPosteriorMean(nn.Module):
     """DiT that predicts mu directly from x_t and t with no retrieval or refiner."""
@@ -211,6 +223,10 @@ class LearnedPosteriorMean(nn.Module):
             return mu, mu_ret
         return mu
 
+
+# ---------------------------------------------------------------------------
+# Positional Embeddings
+# ---------------------------------------------------------------------------
 
 def get_2d_sincos_pos_embed(embed_dim: int, grid_size: int, cls_token: bool = False, extra_tokens: int = 0):
     grid_h = np.arange(grid_size, dtype=np.float32)

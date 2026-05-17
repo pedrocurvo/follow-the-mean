@@ -5,6 +5,10 @@ import math
 import torch
 
 
+# ---------------------------------------------------------------------------
+# Main Objective
+# ---------------------------------------------------------------------------
+
 def compute_main_loss(
     mu: torch.Tensor,
     x_data: torch.Tensor,
@@ -34,6 +38,10 @@ def compute_refiner_loss(
     target = x_data - mu_base.detach()
     return ((alpha * delta) - target).pow(2).mean()
 
+
+# ---------------------------------------------------------------------------
+# Drifting Penalty
+# ---------------------------------------------------------------------------
 
 def compute_drift_field(
     gen: torch.Tensor,
@@ -122,6 +130,10 @@ def drifting_penalty_schedule(
         return max_penalty
     return max_penalty * (step / warmup_steps) ** 2
 
+
+# ---------------------------------------------------------------------------
+# Perturbation Losses
+# ---------------------------------------------------------------------------
 
 def compute_spatial_dev_loss(
     delta: torch.Tensor,

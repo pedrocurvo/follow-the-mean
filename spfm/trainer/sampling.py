@@ -11,12 +11,24 @@ from torchvision.utils import make_grid, save_image
 
 from utils.train_helpers import decode_latents, ensure_dir, nearest_neighbors, sample_closedform
 
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
 NN_SEARCH_CHUNK = 1024
 
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 def _grid_nrow(num_gen: int) -> int:
     return max(1, int(math.sqrt(max(1, int(num_gen)))))
 
+
+# ---------------------------------------------------------------------------
+# Artifact Containers
+# ---------------------------------------------------------------------------
 
 @dataclass
 class QuickSampleArtifacts:
@@ -29,6 +41,10 @@ class QuickSampleArtifacts:
     alt_grid_path: str | None = None
     alt_nn_grid_path: str | None = None
 
+
+# ---------------------------------------------------------------------------
+# Quick Sampling
+# ---------------------------------------------------------------------------
 
 @torch.no_grad()
 def run_quick_sample_nn(
@@ -115,6 +131,10 @@ def run_quick_sample_nn(
     out.alt_nn_grid_path = alt_nn_grid_path
     return out
 
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
 
 def log_quick_sample(
     *,

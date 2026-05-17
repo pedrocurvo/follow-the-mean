@@ -1,17 +1,18 @@
 #!/bin/bash
 # Unified SPFM evaluation launcher.
 #
-# Submit with one MODE and override settings through environment variables:
+# Run with one MODE and override settings through environment variables.
+# On SLURM, submit scripts/batch_eval.sh instead of this file:
 #
-#   sbatch --gres=gpu:4 scripts/eval.sh
-#   MODE=dit-catdog sbatch --gres=gpu:4 scripts/eval.sh
-#   MODE=db-size-sweep DB_SIZES="10 100 1000" sbatch --gres=gpu:1 scripts/eval.sh
-#   MODE=class-balance CAT_PCTS="100 50 0" TOTAL_GEN=1000 sbatch --gres=gpu:1 scripts/eval.sh
-#   MODE=lpips DB_SIZES="10 100 1000" COMPOSITIONS="cat100_dog0 cat50_dog50" sbatch --gres=gpu:1 scripts/eval.sh
-#   MODE=nn-triplet sbatch --gres=gpu:1 scripts/eval.sh
-#   MODE=nn-triplet-steer STEER_STRENGTH=1.0 sbatch --gres=gpu:1 scripts/eval.sh
-#   MODE=metrics-only GENERATED_DIR=out/generated REFERENCE_DIR=out/reference sbatch --gres=gpu:1 scripts/eval.sh
-#   MODE=fixed-seed sbatch --gres=gpu:1 scripts/eval.sh
+#   sbatch --gres=gpu:4 scripts/batch_eval.sh
+#   MODE=dit-catdog sbatch --gres=gpu:4 scripts/batch_eval.sh
+#   MODE=db-size-sweep DB_SIZES="10 100 1000" sbatch --gres=gpu:1 scripts/batch_eval.sh
+#   MODE=class-balance CAT_PCTS="100 50 0" TOTAL_GEN=1000 sbatch --gres=gpu:1 scripts/batch_eval.sh
+#   MODE=lpips DB_SIZES="10 100 1000" COMPOSITIONS="cat100_dog0 cat50_dog50" sbatch --gres=gpu:1 scripts/batch_eval.sh
+#   MODE=nn-triplet sbatch --gres=gpu:1 scripts/batch_eval.sh
+#   MODE=nn-triplet-steer STEER_STRENGTH=1.0 sbatch --gres=gpu:1 scripts/batch_eval.sh
+#   MODE=metrics-only GENERATED_DIR=out/generated REFERENCE_DIR=out/reference sbatch --gres=gpu:1 scripts/batch_eval.sh
+#   MODE=fixed-seed sbatch --gres=gpu:1 scripts/batch_eval.sh
 #
 # Common overrides:
 #   CONFIG=experiments/spfm.yaml
@@ -35,39 +36,11 @@
 # This file replaces the old one-off eval_*.sh wrappers. The Python helpers in
 # eval_tools/ contain model-specific evaluation logic.
 
-#SBATCH --partition=gpu_a100
-#SBATCH --gpus=1
-#SBATCH --job-name=spfm-eval
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
-#SBATCH --time=48:00:00
-#SBATCH --output=out/slurm_output/%A.out
-
 set -euo pipefail
-
-unset CONDA_DEFAULT_ENV CONDA_PREFIX CONDA_PROMPT_MODIFIER CONDA_SHLVL
-
-module purge
-module load 2024
-module load Anaconda3/2024.06-1
-module load 2023
-module load CUDA/12.4.0
-
-source activate hfm
-
-unset HF_HOME
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SPFM_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${SPFM_DIR}" || exit 1
-
-export HF_DATASETS_CACHE="${HF_DATASETS_CACHE:-${SPFM_DIR}/.cache/hf/datasets}"
-export HF_HUB_CACHE="${HF_HUB_CACHE:-${SPFM_DIR}/.cache/hf/hub}"
-mkdir -p "${HF_DATASETS_CACHE}" "${HF_HUB_CACHE}"
-
-export NVIDIA_TF32_OVERRIDE="${NVIDIA_TF32_OVERRIDE:-1}"
-export CUDA_LAUNCH_BLOCKING="${CUDA_LAUNCH_BLOCKING:-0}"
-export PYTORCH_ALLOC_CONF="${PYTORCH_ALLOC_CONF:-expandable_segments:True}"
 
 PYTHON_BIN="${PYTHON_BIN:-python}"
 MODE="${MODE:-spfm-catdog}"
@@ -88,7 +61,7 @@ run_eval_checkpoint() {
   if [[ "${NUM_PROCESSES}" -gt 1 ]]; then
     maybe_multi=(-m accelerate.commands.launch --multi_gpu --num_processes "${NUM_PROCESSES}")
   fi
-  srun "${PYTHON_BIN}" "${maybe_multi[@]}" eval_checkpoint.py "$@"
+  "${PYTHON_BIN}" "${maybe_multi[@]}" eval_checkpoint.py "$@"
 }
 
 set_spfm_defaults() {
@@ -241,7 +214,7 @@ run_lpips_sweep() {
         --inception_score false \
         --clip_eval false
 
-      srun "${PYTHON_BIN}" eval_tools/lpips_metrics.py \
+      "${PYTHON_BIN}" eval_tools/lpips_metrics.py \
         --image_dir "${generated_dir}" \
         --output_json "${results_dir}/lpips_metrics.json" \
         --max_pairs "${lpips_max_pairs}" \
@@ -253,7 +226,7 @@ run_lpips_sweep() {
 
 run_nn_triplet() {
   local results_dir="${RESULTS_DIR:-out/evals/${MODEL_TAG}/nn_triplet}"
-  srun "${PYTHON_BIN}" eval_tools/nn_triplet.py \
+  "${PYTHON_BIN}" eval_tools/nn_triplet.py \
     --config "${CONFIG}" \
     --ckpt "${CKPT}" \
     --results_dir "${results_dir}" \
@@ -270,7 +243,7 @@ run_nn_triplet_steer() {
   [[ -n "${PATCH_ROWS:-}" ]] && extra_args+=(--patch_rows "${PATCH_ROWS}")
   [[ -n "${PATCH_COLS:-}" ]] && extra_args+=(--patch_cols "${PATCH_COLS}")
 
-  srun "${PYTHON_BIN}" eval_tools/nn_triplet_steering.py \
+  "${PYTHON_BIN}" eval_tools/nn_triplet_steering.py \
     --config "${CONFIG}" \
     --ckpt "${CKPT}" \
     --results_dir "${results_dir}" \
@@ -294,7 +267,7 @@ run_metrics_only() {
     echo "MODE=metrics-only requires GENERATED_DIR and REFERENCE_DIR." >&2
     exit 1
   fi
-  srun "${PYTHON_BIN}" eval_tools/image_folder_metrics.py \
+  "${PYTHON_BIN}" eval_tools/image_folder_metrics.py \
     --generated_dir "${GENERATED_DIR}" \
     --reference_dir "${REFERENCE_DIR}" \
     --results_dir "${RESULTS_DIR:-out/evals/${MODEL_TAG}/metrics_only}" \
@@ -306,7 +279,7 @@ run_metrics_only() {
 }
 
 run_fixed_seed() {
-  srun "${PYTHON_BIN}" eval_tools/fixed_seed_comparison.py \
+  "${PYTHON_BIN}" eval_tools/fixed_seed_comparison.py \
     --config "${CONFIG:-experiments/spfm.yaml}" \
     --dit-ckpt "${DIT_CKPT:-out/dit_afhq_10k}" \
     --spfm-ckpt "${SPFM_CKPT:-${CKPT}}" \

@@ -40,8 +40,16 @@ from utils.train_helpers import (
 )
 
 
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
 LOGGER = logging.getLogger("eval_checkpoint")
 
+
+# ---------------------------------------------------------------------------
+# CLI And Logging Helpers
+# ---------------------------------------------------------------------------
 
 def _parse_bool(value):
     if isinstance(value, bool):
@@ -76,6 +84,10 @@ def _setup_logging(results_dir: str) -> None:
         force=True,
     )
 
+
+# ---------------------------------------------------------------------------
+# Config And Checkpoint Resolution
+# ---------------------------------------------------------------------------
 
 def _load_config_args(config_path: str):
     with open(config_path, "r", encoding="utf-8") as f:
@@ -156,6 +168,10 @@ def _resolve_model_weights_path(requested_ckpt: str | None, train_out_dir: str) 
     raise FileNotFoundError(f"No model_last.pt or model_step*.pt found under {root}")
 
 
+# ---------------------------------------------------------------------------
+# Runtime Preparation
+# ---------------------------------------------------------------------------
+
 def _prepare_reference_args(args):
     ref_args = deepcopy(args)
     ref_args.db = "none"
@@ -179,6 +195,10 @@ def _maybe_override_embed_dim(args) -> None:
         LOGGER.info("[model] overriding embed_dim to expected=%d (was %d)", expected_embed_dim, args.embed_dim)
         args.embed_dim = expected_embed_dim
 
+
+# ---------------------------------------------------------------------------
+# Image And Metric Helpers
+# ---------------------------------------------------------------------------
 
 def _write_latents_to_dir_if_needed(vae, latents: torch.Tensor, out_dir: str, decode_batch: int) -> None:
     existing = sorted(Path(out_dir).glob("*.png"))
@@ -288,6 +308,10 @@ def _load_model_weights(model: torch.nn.Module, ckpt_path: str, use_ema: bool) -
     train._unwrap_model_for_runtime(model).load_state_dict(state_dict)
     LOGGER.info("[ckpt] loaded %s weights from %s", chosen, ckpt_path)
 
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Generate images and evaluate a trained checkpoint.")

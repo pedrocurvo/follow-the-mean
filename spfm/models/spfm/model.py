@@ -28,6 +28,10 @@ from models.refiner.model import LatentRefiner as SharedLatentRefiner
 from models.time_embed import TimestepEmbedder
 
 
+# ---------------------------------------------------------------------------
+# Cross Attention
+# ---------------------------------------------------------------------------
+
 class CrossAttention(nn.Module):
     def __init__(
         self,
@@ -326,6 +330,11 @@ class CrossAttention(nn.Module):
         mu = mu.reshape(bsz, num_tokens, self.value_dim)
         return mu.to(dtype=q.dtype)
 
+
+# ---------------------------------------------------------------------------
+# Cross-Attention Block
+# ---------------------------------------------------------------------------
+
 class CrossAttnBlock(nn.Module):
     def __init__(
         self,
@@ -379,6 +388,11 @@ class CrossAttnBlock(nn.Module):
             rope=rope,
         )
         return attn_out
+
+
+# ---------------------------------------------------------------------------
+# SPFM Model
+# ---------------------------------------------------------------------------
 
 class LearnedPosteriorMean(nn.Module):
     """Patchwise retrieval model with AdaLN-conditioned queries."""

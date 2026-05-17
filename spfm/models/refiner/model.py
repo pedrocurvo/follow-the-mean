@@ -8,6 +8,9 @@ from models.pos_embed import VisionRotaryEmbeddingFast
 from models.adaln import modulate
 
 
+# ---------------------------------------------------------------------------
+# Attention Blocks
+# ---------------------------------------------------------------------------
 
 class RefinerAttention(nn.Module):
     def __init__(
@@ -132,6 +135,10 @@ class RefinerFinalLayer(nn.Module):
         return self.linear(x)
 
 
+# ---------------------------------------------------------------------------
+# Latent Refiner
+# ---------------------------------------------------------------------------
+
 class LatentRefiner(nn.Module):
     def __init__(
         self,
@@ -242,6 +249,10 @@ class LatentRefiner(nn.Module):
         x = x.view(bsz, ch_latent, self.latent_h, self.latent_w)
         return x
 
+
+# ---------------------------------------------------------------------------
+# Positional Embeddings
+# ---------------------------------------------------------------------------
 
 def get_2d_sincos_pos_embed(embed_dim, grid_size, cls_token=False, extra_tokens=0):
     grid_h = np.arange(grid_size, dtype=np.float32)

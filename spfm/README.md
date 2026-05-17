@@ -63,14 +63,14 @@ Submit the DiT config:
 
 ```bash
 cd spfm
-sbatch scripts/train.sh experiments/dit.yaml
+sbatch scripts/batch_train.sh experiments/dit.yaml
 ```
 
 Submit the SPFM config:
 
 ```bash
 cd spfm
-sbatch scripts/train.sh experiments/spfm.yaml
+sbatch scripts/batch_train.sh experiments/spfm.yaml
 ```
 
 For a non-SLURM dry run that only prints the generated command:
@@ -111,7 +111,7 @@ Use one launcher for all eval modes:
 
 ```bash
 cd spfm
-MODE=spfm-catdog sbatch --gres=gpu:4 scripts/eval.sh
+MODE=spfm-catdog sbatch --gres=gpu:4 scripts/batch_eval.sh
 ```
 
 Common overrides:
@@ -132,22 +132,24 @@ NUM_PROCESSES=4
 Supported modes:
 
 ```bash
-MODE=spfm-catdog sbatch --gres=gpu:4 scripts/eval.sh
-MODE=dit-catdog sbatch --gres=gpu:4 scripts/eval.sh
-MODE=db-size-sweep DB_SIZES="10 100 1000" sbatch --gres=gpu:1 scripts/eval.sh
-MODE=class-balance CAT_PCTS="100 50 0" TOTAL_GEN=1000 sbatch --gres=gpu:1 scripts/eval.sh
-MODE=lpips DB_SIZES="10 100 1000" COMPOSITIONS="cat100_dog0 cat50_dog50" sbatch --gres=gpu:1 scripts/eval.sh
-MODE=nn-triplet sbatch --gres=gpu:1 scripts/eval.sh
-MODE=nn-triplet-steer STEER_STRENGTH=1.0 sbatch --gres=gpu:1 scripts/eval.sh
-MODE=metrics-only GENERATED_DIR=out/generated REFERENCE_DIR=out/reference sbatch --gres=gpu:1 scripts/eval.sh
-MODE=fixed-seed sbatch --gres=gpu:1 scripts/eval.sh
+MODE=spfm-catdog sbatch --gres=gpu:4 scripts/batch_eval.sh
+MODE=dit-catdog sbatch --gres=gpu:4 scripts/batch_eval.sh
+MODE=db-size-sweep DB_SIZES="10 100 1000" sbatch --gres=gpu:1 scripts/batch_eval.sh
+MODE=class-balance CAT_PCTS="100 50 0" TOTAL_GEN=1000 sbatch --gres=gpu:1 scripts/batch_eval.sh
+MODE=lpips DB_SIZES="10 100 1000" COMPOSITIONS="cat100_dog0 cat50_dog50" sbatch --gres=gpu:1 scripts/batch_eval.sh
+MODE=nn-triplet sbatch --gres=gpu:1 scripts/batch_eval.sh
+MODE=nn-triplet-steer STEER_STRENGTH=1.0 sbatch --gres=gpu:1 scripts/batch_eval.sh
+MODE=metrics-only GENERATED_DIR=out/generated REFERENCE_DIR=out/reference sbatch --gres=gpu:1 scripts/batch_eval.sh
+MODE=fixed-seed sbatch --gres=gpu:1 scripts/batch_eval.sh
 ```
 
 Evaluation outputs go under `out/evals/...` by default. Generated image artifacts go under `ARTIFACTS_ROOT` so large files do not have to live in the repo.
 
 ## Direct Python Tools
 
-Most runs should go through `scripts/eval.sh`, but the helper tools can be called directly:
+Most SLURM runs should go through the local `scripts/batch_eval.sh` wrapper. The core
+`scripts/eval.sh` and helper tools can also be called directly from an already-prepared
+environment:
 
 ```bash
 python eval_checkpoint.py --help
@@ -160,7 +162,8 @@ python eval_tools/fixed_seed_comparison.py --help
 
 ## Notes
 
-- `scripts/train.sh` and `scripts/eval.sh` resolve `spfm/` relative to their own location, so they can be submitted from inside `spfm/` or through an absolute path.
+- `scripts/batch_train.sh` and `scripts/batch_eval.sh` contain local SLURM/module setup and are ignored by git.
+- `scripts/train.sh` and `scripts/eval.sh` resolve `spfm/` relative to their own location and contain the reusable run logic.
 - `run_experiment.py` flattens YAML config sections into `train.py` CLI flags.
 - `eval_checkpoint.py` loads the same YAML config, restores model weights, generates samples, and computes metrics.
 - Checkpoints can be passed as `model_step*.pt`, `model_last.pt`, or a checkpoint directory when supported by the eval tool.

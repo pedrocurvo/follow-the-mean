@@ -158,8 +158,8 @@ Submit training through:
 
 ```bash
 cd spfm
-sbatch scripts/train.sh experiments/spfm.yaml
-sbatch scripts/train.sh experiments/dit.yaml
+sbatch scripts/batch_train.sh experiments/spfm.yaml
+sbatch scripts/batch_train.sh experiments/dit.yaml
 ```
 
 Dry-run the generated training command with:
