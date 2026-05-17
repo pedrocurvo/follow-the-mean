@@ -1,6 +1,4 @@
-<p align="center">
-  <strong>Follow the Mean: Reference-Guided Flow Matching</strong>
-</p>
+<h2 align="center">Reference-Guided Flow Matching</h2>
 
 <p align="center">
   <img src="moons/images/fig3_flow.png" alt="Reference-guided flow fields on two moons" width="680">
