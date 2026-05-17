@@ -4,18 +4,22 @@ sections:
 - case
 common:
   out_dir: runs/keyhole
+  seed: 523
+  num_inference_steps: 50
+  height: 768
+  width: 768
 retrieval:
   reuse_reference: true
   reference_size: 20
   guidance_strength: 0.2
-  beta_schedule: bell
+  beta_schedule: quadratic-decay
   guidance_start_frac: 0.15
   guidance_end_frac: 0.95
   topk: 4
   callback_verbose: false
 case:
   slug: keyhole
-  prompt: a keyhole on a black background
+  prompt: A miniature forest with tall pine trees, a glowing campfire, and fireflies drifting in the night sky, all inside a keyhole on a black background
   reference_set:
     type: prompts
     label: keyhole reference
