@@ -1,5 +1,3 @@
-# Follow the Mean
-
 <p align="center">
   <strong>Follow the Mean: Reference-Guided Flow Matching</strong>
 </p>
