@@ -270,27 +270,32 @@ def _load_pipe(model_id: str, dtype: torch.dtype):
     pipe = None
     pipe_kind = None
 
-    try:
-        from diffusers import Flux2KleinPipeline
-        if "klein" in model_id.lower():
+    if "klein" in model_id.lower():
+        try:
+            from diffusers import Flux2KleinPipeline
+        except Exception as e:
+            raise RuntimeError(
+                "This checkpoint requires diffusers support for Flux2KleinPipeline, "
+                "but the installed diffusers package does not provide it. "
+                f"Model: {model_id}. "
+                "Upgrade diffusers to a version that includes Flux2KleinPipeline."
+            ) from e
+
+        try:
             pipe = Flux2KleinPipeline.from_pretrained(
                 model_id,
                 torch_dtype=dtype,
                 low_cpu_mem_usage=False,
             )
             pipe_kind = "flux2_klein"
-    except Exception as e:
-        print("Flux2KleinPipeline load attempt failed:", repr(e))
+        except Exception as e:
+            raise RuntimeError(
+                "Flux2KleinPipeline is available, but loading the checkpoint failed. "
+                "Check model access, Hugging Face cache location/quota, and any partial downloads. "
+                f"Model: {model_id}."
+            ) from e
 
     if pipe is None:
-        if "klein" in model_id.lower():
-            raise RuntimeError(
-                "This checkpoint requires diffusers support for Flux2KleinPipeline, "
-                "but the installed diffusers package does not provide it. "
-                f"Model: {model_id}. "
-                "Upgrade diffusers to a version that includes Flux2KleinPipeline "
-                "instead of falling back to Flux2Pipeline."
-            )
         try:
             from diffusers import Flux2Pipeline
             pipe = Flux2Pipeline.from_pretrained(

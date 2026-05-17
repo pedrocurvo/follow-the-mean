@@ -169,19 +169,44 @@ def shared_references_dir(root_dir: Path) -> Path:
     return root_dir / "references"
 
 
+def make_reference_label(reference_prompts: Sequence[str]) -> str:
+    prompt_counts = Counter(reference_prompts)
+    return "-".join(f"{slugify(prompt)}x{count}" for prompt, count in sorted(prompt_counts.items()))
+
+
 def make_reference_id(args: argparse.Namespace, reference_prompts: Sequence[str]) -> str:
+    # Keep the hash schema compatible with the original scalable-fm scripts so
+    # renamed references resolve to the same cached images/latents.
     payload = {
         "model_id": args.model_id,
         "height": args.height,
         "width": args.width,
-        "reference_size": len(reference_prompts),
-        "reference_seed": args.reference_seed,
-        "reference_prompts": list(reference_prompts),
+        "bank_size": len(reference_prompts),
+        "bank_seed": args.reference_seed,
+        "bank_prompts": list(reference_prompts),
     }
     digest = hashlib.sha1(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()[:12]
-    prompt_counts = Counter(reference_prompts)
-    label = "-".join(f"{slugify(prompt)}x{count}" for prompt, count in sorted(prompt_counts.items()))
+    label = make_reference_label(reference_prompts)
     return f"{label}-{digest}"[:180]
+
+
+def has_reference_cache(reference_dir: Path) -> bool:
+    return (reference_dir / "reference_cache.pt").exists() or (reference_dir / "bank_cache.pt").exists()
+
+
+def resolve_staged_reference_dir(root_dir: Path, reference_id: str, reference_prompts: Sequence[str]) -> Path:
+    reference_root = shared_references_dir(root_dir)
+    canonical_dir = reference_root / reference_id
+    if has_reference_cache(canonical_dir):
+        return canonical_dir
+
+    label = make_reference_label(reference_prompts)
+    candidates = sorted(path for path in reference_root.glob(f"{label}-*") if has_reference_cache(path))
+    if candidates:
+        print(f"Reusing staged reference with legacy id: {candidates[0]}")
+        return candidates[0]
+
+    return canonical_dir
 
 
 def list_image_paths(image_dir: Path) -> List[Path]:
@@ -249,7 +274,7 @@ def make_reference_cfg(
     reference_prompts: Sequence[str],
 ) -> tuple[poc.RuntimeConfig, str]:
     reference_id = make_reference_id(args, reference_prompts)
-    reference_dir = shared_references_dir(root_dir) / reference_id
+    reference_dir = resolve_staged_reference_dir(root_dir, reference_id, reference_prompts)
     cfg = make_runtime_cfg(
         args,
         prompt=reference_prompts[0] if reference_prompts else reference_label,
