@@ -207,6 +207,14 @@ For RMG with FLUX.2, you also need access to:
 black-forest-labs/FLUX.2-klein-4B
 ```
 
+To use the reference banks from the paper, download the shared RMG reference archive:
+
+```bash
+make download
+```
+
+This populates `rgm/references/`, which is ignored by git because it contains generated image and latent caches.
+
 On Snellius-style systems, the scripts assume the project environment used for the experiments. See `spfm/README.md` and `rgm/README.md` for folder-specific notes.
 
 ## Outputs And Git Hygiene
