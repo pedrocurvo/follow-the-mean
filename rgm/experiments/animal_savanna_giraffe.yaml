@@ -4,12 +4,16 @@ sections:
 - case
 common:
   out_dir: runs/animal_savanna_giraffe
+  seed: 223
+  num_inference_steps: 50
+  height: 768
+  width: 768
 retrieval:
   reuse_reference: true
   reference_size: 20
-  guidance_strength: 0.2
-  beta_schedule: bell
-  guidance_start_frac: 0.15
+  guidance_strength: 1.0
+  beta_schedule: quadratic-decay
+  guidance_start_frac: 0.0
   guidance_end_frac: 0.95
   topk: 4
   callback_verbose: false
