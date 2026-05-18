@@ -48,10 +48,12 @@ RMG approximates that target mean from a reference set:
 R = {reference image 1, reference image 2, ..., reference image M}
 ```
 
-At sampling time, the method computes an empirical reference endpoint mean and adds a guidance velocity:
+At sampling time, the method computes an empirical reference endpoint mean and
+adds the corresponding endpoint-mean shift to the base model velocity:
 
 ```text
-v_guided(x_t, t) = (mu_ref(x_t, t) - x_t) / (1 - t)
+u_guided(x_t, t) = u_theta(x_t, t)
+    + beta_t * (mu_ref(x_t, t) - mu_theta(x_t, t)) / (1 - t)
 ```
 
 The practical consequence is important: the control signal lives in the reference set, not in a trained classifier, reward, prompt optimizer, or model update. Change the references, and the flow changes.

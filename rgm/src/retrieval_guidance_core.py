@@ -227,7 +227,10 @@ def rmg_velocity_update(
     Compute:
         logits_i = - ||x_t - t d_i||^2 / (2 (1-t)^2 + eps)
         mu_ref(x,t) = sum_i softmax(logits_i) d_i
-        v_guided(x,t) = (mu_ref(x,t) - x_t) / (1-t)
+        v_ref(x,t) = (mu_ref(x,t) - x_t) / (1-t)
+
+    The caller converts this reference-only velocity into the paper's RMG
+    residual correction, beta_t * (mu_ref - mu_theta) / (1-t).
     """
     reference_latents = _resize_packed_reference_latents_to_match(
         reference_latents, current_latents
