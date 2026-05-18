@@ -1,4 +1,4 @@
-<h2 align="center">Reference-Guided Flow Matching</h2>
+<h2 align="center">Follow the Mean: Reference-Guided Flow Matching</h2>
 
 <p align="center">
   <img src="assets/follow-the-mean.gif" alt="Follow the Mean reference-guided generation" width="680">
