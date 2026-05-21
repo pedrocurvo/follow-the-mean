@@ -7,6 +7,7 @@
 <p align="center">
   <a href="https://arxiv.org/abs/2605.10302"><img src="https://img.shields.io/badge/arXiv-2605.10302-b31b1b.svg" alt="arXiv"></a>
   <a href="https://pedrocurvo.com/follow-the-mean"><img src="https://img.shields.io/badge/Blog-follow--the--mean-1f6feb.svg" alt="blog"></a>
+  <a href="https://huggingface.co/spaces/multimodalart/follow-the-mean"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20Demo-FLUX.2--klein-ffcc4d.svg" alt="HF Space"></a>
   <img src="https://img.shields.io/badge/method-reference--guided--flows-4b44ce.svg" alt="method">
   <img src="https://img.shields.io/badge/control-examples--not--rewards-f9c74f.svg" alt="examples not rewards">
 </p>
@@ -120,6 +121,8 @@ sbatch run_steerability.sh
 ### RMG With FLUX.2
 
 `rgm/` is the training-free pretrained-model endpoint. It applies Reference-Mean Guidance to a frozen `black-forest-labs/FLUX.2-klein-4B` model.
+
+Try it in the browser (no install) on the Hugging Face Space: [multimodalart/follow-the-mean](https://huggingface.co/spaces/multimodalart/follow-the-mean). Upload a small reference set, give it a prompt, and compare the baseline and the RMG-guided output side by side.
 
 The prompt, seed, sampler, and model weights can stay fixed while the reference set changes. This is used for:
 
